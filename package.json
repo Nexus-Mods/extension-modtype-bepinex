@@ -1,7 +1,7 @@
 {
-  "name": "modtype-dinput",
+  "name": "modtype-bepinex",
   "version": "0.1.0",
-  "description": "Support for dinput mods",
+  "description": "Adds several BepInEx specific modTypes and the ability to automatically download and install the library.",
   "main": "./out/index.js",
   "repository": "",
   "scripts": {
