@@ -35,11 +35,47 @@ function init(context: types.IExtensionContext) {
     }
   };
 
-  // There's currently no reliable way to differentiate BepInEx plugins from patchers,
-  //  apart from the mod's description specifying where to deploy the mod. Which is why
-  //  we're going to rely on the user or the game extension's installers to define which
-  //  modType to use.
+  const genTestProps = () => {
+    const state = context.api.getState();
+    const activeGameId = selectors.activeGameId(state);
+    const gameConf = getSupportMap()[activeGameId];
+    const game: types.IGameStored = selectors.gameById(state, activeGameId);
+    return { gameConf, game };
+  };
+
+  // A dummy modType test for modTypes we do not want to assign automatically.
   const modTypeTest = toBlue(() => Promise.resolve(false));
+
+  // Regular DLL plugin modType test
+  const pluginModTypeTest = (async (instructions: types.IInstruction[]) => {
+    const copyInstructions = instructions.filter(instr => (instr.type === 'copy')
+      && path.extname(path.basename(instr.destination)));
+
+    return (copyInstructions.find(instr =>
+      path.extname(instr.destination) === '.dll') !== undefined);
+  });
+
+  const rootModTypeTest = (async (instructions: types.IInstruction[]) => {
+    const bixRootFolders: string[] = ['plugins', 'patchers', 'config'];
+    const isRootSegment = (seg: string) => (seg !== undefined)
+      ? bixRootFolders.includes(seg.toLowerCase())
+      : false;
+    const copyInstructions = instructions.filter(instr => (instr.type === 'copy')
+      && path.extname(path.basename(instr.destination)));
+
+    for (const instr of copyInstructions) {
+      const segments = instr.destination.split(path.sep);
+      const rootSeg = segments.find(isRootSegment);
+      if (rootSeg && segments.indexOf(rootSeg) === 0) {
+        // The instructions have an expected root segment
+        //  right at the root of the mod's installation folder,
+        //  this is a root mod.
+        return true;
+      }
+    }
+
+    return false;
+  });
 
   context.registerDashlet('BepInEx Support', 1, 2, 250, AttribDashlet,
     showAttrib, () => ({}), undefined);
@@ -56,44 +92,44 @@ function init(context: types.IExtensionContext) {
     }
   }, { minArguments: 1 });
 
-  context.registerModType('bepinex-injector', 25, isSupported, getPath, modTypeTest, {
+  // This modType is assigned by the BepInEx injector installer.
+  context.registerModType('bepinex-injector', 10, isSupported, getPath, modTypeTest, {
     mergeMods: true,
     name: 'Bepis Injector Extensible',
   });
 
-  context.registerModType('bepinex-root', 25, isSupported,
-  (game: types.IGame) => path.join(getPath(game), 'BepInEx'), modTypeTest, {
+  // Assigned to any mod that contains the plugins, patchers, config directories
+  context.registerModType('bepinex-root', 50, isSupported,
+  (game: types.IGame) => path.join(getPath(game), 'BepInEx'), toBlue(rootModTypeTest), {
     mergeMods: true,
-    name: 'BepInEx Root',
+    name: '../BepInEx/',
   });
 
-  context.registerModType('bepinex-plugin', 25, isSupported,
-    (game: types.IGame) => path.join(getPath(game), 'BepInEx', 'plugins'), modTypeTest, {
+  context.registerModType('bepinex-plugin', 60, isSupported,
+    (game: types.IGame) => path.join(getPath(game), 'BepInEx', 'plugins'),
+    toBlue(pluginModTypeTest), {
     mergeMods: true,
-    name: 'BepInEx Plugin',
+    name: '../BepInEx/plugins/',
   });
 
+  // There's currently no reliable way to differentiate BepInEx plugins from patchers,
+  //  apart from the mod's description specifying where to deploy the mod. Unlike regular
+  //  plugins, patchers should only be used only in special cases, which is why
+  //  we don't want this to be assigned by default.
   context.registerModType('bepinex-patcher', 25, isSupported,
-    (game: types.IGame) => path.join(getPath(game), 'BepInEx', 'patchers'), modTypeTest, {
+    (game: types.IGame) => path.join(getPath(game), 'BepInEx', 'patchers'),
+    toBlue(() => Promise.resolve(false)), {
     mergeMods: true,
-    name: 'BepInEx Patcher',
+    name: '../BepInEx/patchers/',
   });
 
   context.registerInstaller('bepis-injector-extensible', 50,
     toBlue((files) => testSupportedBepInExInjector(context.api, files)),
     toBlue(installInjector));
 
-  context.registerInstaller('bepinex-root', 25,
+  context.registerInstaller('bepinex-root', 50,
     toBlue((files) => testSupportedRootMod(context.api, files)),
     toBlue(installRootMod));
-
-  const genTestProps = () => {
-    const state = context.api.getState();
-    const activeGameId = selectors.activeGameId(state);
-    const gameConf = getSupportMap()[activeGameId];
-    const game: types.IGameStored = selectors.gameById(state, activeGameId);
-    return { gameConf, game };
-  };
 
   context.registerTest('bepinex-config-test', 'gamemode-activated',
     toBlue(() => {
