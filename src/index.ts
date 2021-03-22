@@ -35,9 +35,11 @@ function init(context: types.IExtensionContext) {
     }
   };
 
-  const genTestProps = () => {
+  const genTestProps = (gameId?: string) => {
     const state = context.api.getState();
-    const activeGameId = selectors.activeGameId(state);
+    const activeGameId = (gameId === undefined)
+      ? selectors.activeGameId(state)
+      : gameId;
     const gameConf = getSupportMap()[activeGameId];
     const game: types.IGameStored = selectors.gameById(state, activeGameId);
     return { gameConf, game };
@@ -154,8 +156,10 @@ function init(context: types.IExtensionContext) {
         return;
       }
 
+      const { gameConf } = genTestProps(gameMode);
+
       try {
-        await createDirectories(context.api, getSupportMap()[gameMode]);
+        await createDirectories(context.api, gameConf);
       } catch (err) {
         log('error', 'failed to create BepInEx directories', err);
         return;
@@ -163,7 +167,26 @@ function init(context: types.IExtensionContext) {
       const replace = {
         game: gameMode,
         bl: '[br][/br][br][/br]',
+        bixUrl: '[url=https://github.com/BepInEx/BepInEx/releases]BepInEx Release[/url]',
       };
+      const dialogContents = (gameConf.autoDownloadBepInEx)
+        ? t('The {{game}} game extension requires a widely used 3rd party assembly '
+          + 'patching/injection library called Bepis Injector Extensible (BepInEx).{{bl}}'
+          + 'Vortex has downloaded and installed this library automatically for you, and is currently '
+          + 'available in your mods page to enable/disable just like any other regular mod. '
+          + 'Depending on the modding pattern of {{game}}, BepInEx may be a hard requirement '
+          + 'for mods to function in-game in which case you MUST have the library enabled and deployed '
+          + 'at all times for the mods to work!{{bl}}'
+          + 'To remove the library, simply disable the mod entry for BepInEx.'
+          , { replace })
+        : t('The {{game}} game extension requires a widely used 3rd party assembly '
+          + 'patching/injection library called Bepis Injector Extensible (BepInEx).{{bl}}'
+          + 'BepInEx may be a hard requirement for some mods to function in-game in which case you should '
+          + 'manually download and install the latest {{bixUrl}} in order for the mods to work!{{bl}}'
+          + 'If you installed the BepInEx package through Vortex, don\'t to enable and click "Deploy Mods", '
+          + 'for the package to be linked to your game\'s directory'
+          , { replace });
+
       return ensureBepInExPack(context.api)
         .then(() => context.api.sendNotification({
           id: 'bepis_injector' + gameMode,
@@ -174,15 +197,7 @@ function init(context: types.IExtensionContext) {
             {
               title: 'More',
               action: () => context.api.showDialog('info', 'Bepis Injector Extensible', {
-                bbcode: t('The {{game}} game extension requires a widely used 3rd party assembly '
-                  + 'patching/injection library called Bepis Injector Extensible (BepInEx).{{bl}}'
-                  + 'Vortex has downloaded and installed this library automatically for you, and is currently '
-                  + 'available in your mods page to enable/disable just like any other regular mod. '
-                  + 'Depending on the modding pattern of {{game}}, BepInEx may be a hard requirement '
-                  + 'for mods to function in-game in which case you MUST have the library enabled and deployed '
-                  + 'at all times for the mods to work!{{bl}}'
-                  + 'To remove the library, simply disable the mod entry for BepInEx.'
-                  , { replace }),
+                bbcode: dialogContents,
               }, [ { label: 'Close' } ]),
             },
           ],
