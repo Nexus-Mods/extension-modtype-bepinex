@@ -85,6 +85,14 @@ function init(context: types.IExtensionContext) {
   context.registerAPI('bepinexAddGame', (bepinexConf: IBepInExGameConfig,
                                          callback?: (err: Error) => void) => {
     if ((bepinexConf !== undefined) || ((bepinexConf as IBepInExGameConfig) === undefined)) {
+      const state = context.api.getState();
+      const isPremium = util.getSafe(state, ['persistent', 'nexus', 'userInfo', 'isPremium'], false);
+      if (isPremium) {
+        // We can't automatically download anything if the user isn't premium.
+        //  The extension will notify the user to download the dependency from
+        //  BIX's github page.
+        bepinexConf.autoDownloadBepInEx = false;
+      }
       addGameSupport(bepinexConf);
       if (bepinexConf.autoDownloadBepInEx) {
         ensureBepInExPack(context.api);
@@ -183,8 +191,10 @@ function init(context: types.IExtensionContext) {
           + 'patching/injection library called Bepis Injector Extensible (BepInEx).{{bl}}'
           + 'BepInEx may be a hard requirement for some mods to function in-game in which case you should '
           + 'manually download and install the latest {{bixUrl}} in order for the mods to work!{{bl}}'
-          + 'If you installed the BepInEx package through Vortex, don\'t to enable and click "Deploy Mods", '
-          + 'for the package to be linked to your game\'s directory'
+          + 'Choose the "BepInEx_x64_...zip" variant - you can then drag and drop it inside the mods page\'s '
+          + '"Drop area" to have Vortex install it as any other mod.{{bl}}'
+          + 'If you installed the BepInEx package through Vortex, don\'t forget to enable it and click "Deploy Mods", '
+          + 'for the package to be linked to your game\'s directory.'
           , { replace });
 
       return ensureBepInExPack(context.api)
