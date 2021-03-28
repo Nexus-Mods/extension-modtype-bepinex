@@ -87,7 +87,7 @@ function init(context: types.IExtensionContext) {
     if ((bepinexConf !== undefined) || ((bepinexConf as IBepInExGameConfig) === undefined)) {
       const state = context.api.getState();
       const isPremium = util.getSafe(state, ['persistent', 'nexus', 'userInfo', 'isPremium'], false);
-      if (isPremium) {
+      if (!isPremium) {
         // We can't automatically download anything if the user isn't premium.
         //  The extension will notify the user to download the dependency from
         //  BIX's github page.
