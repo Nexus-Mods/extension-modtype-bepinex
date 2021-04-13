@@ -2,7 +2,7 @@ import { defaultTo } from 'lodash';
 import path from 'path';
 import { actions, fs, log, selectors, types, util } from 'vortex-api';
 
-import { NEXUS, getSupportMap } from './common';
+import { getSupportMap, NEXUS } from './common';
 import { IBepInExGameConfig, INexusDownloadInfo, INexusDownloadInfoExt, NotPremiumError } from './types';
 
 function genDownloadProps(api: types.IExtensionApi, archiveName: string) {
@@ -10,7 +10,7 @@ function genDownloadProps(api: types.IExtensionApi, archiveName: string) {
   const downloads: { [dlId: string]: types.IDownload } = util.getSafe(state, ['persistent', 'downloads', 'files'], {});
   const downloadId = Object.keys(downloads).find(dId => downloads[dId].localPath === archiveName);
   return { downloads, downloadId, state };
-};
+}
 
 function updateSupportedGames(api: types.IExtensionApi, downloadInfo: INexusDownloadInfo) {
   const { downloadId, downloads } = genDownloadProps(api, downloadInfo.archiveName);
@@ -23,12 +23,15 @@ function updateSupportedGames(api: types.IExtensionApi, downloadInfo: INexusDown
   api.store.dispatch(actions.setCompatibleGames(downloadId, Array.from(supportedGames)));
 }
 
-async function install(api: types.IExtensionApi, downloadInfo: INexusDownloadInfo, downloadId: string) {
+async function install(api: types.IExtensionApi,
+                       downloadInfo: INexusDownloadInfo,
+                       downloadId: string) {
   const state = api.getState();
   if (downloadInfo.allowAutoInstall && state.settings.automation?.['install'] !== true) {
     const mods: { [modId: string]: types.IMod } =
       util.getSafe(state, ['persistent', 'mods', downloadInfo.gameId], {});
-    const isInjectorInstalled = Object.keys(mods).find(id => mods[id].type === 'bepinex-injector') !== undefined;
+    const isInjectorInstalled = Object.keys(mods).find(id =>
+      mods[id].type === 'bepinex-injector') !== undefined;
     if (!isInjectorInstalled) {
       api.events.emit('start-install-download', downloadId);
     }
@@ -121,8 +124,8 @@ export async function ensureBepInExPack(api: types.IExtensionApi,
       fileId: '956',
       archiveName: 'BepInEx_x64_5.4.8.0.zip',
       allowAutoInstall: true,
-      githubUrl: 'https://github.com/BepInEx/BepInEx/releases/tag/v5.4.8'
-    }
+      githubUrl: 'https://github.com/BepInEx/BepInEx/releases/tag/v5.4.8',
+    };
     try {
       await download(api, defaultDownload);
     } catch (err) {
@@ -141,15 +144,15 @@ export async function ensureBepInExPack(api: types.IExtensionApi,
           + 'for mods to function in-game, in which case you MUST have the library enabled and deployed '
           + 'at all times for the mods to work!{{bl}}'
           + 'To remove the library, simply disable the mod entry for BepInEx.'
-          , { replace })
+          , { replace }),
         }, [
           { label: 'Close' },
-          { 
+          {
             label: 'Download BepInEx',
             action: () => downloadFromGithub(api, defaultDownload),
             default: true,
-          }
-        ])
+          },
+        ]);
         return Promise.reject(err);
       }
       log('error', 'failed to download default pack', err);
@@ -161,7 +164,7 @@ async function downloadFromGithub(api: types.IExtensionApi, dlInfo: INexusDownlo
   const t = api.translate;
   const replace = {
     archiveName: dlInfo.archiveName,
-  }
+  };
   const instructions = t('Once you allow Vortex to browse to GitHub - '
     + 'Please scroll down and click on "{{archiveName}}"', { replace });
   return new Promise((resolve, reject) => {
@@ -195,5 +198,5 @@ async function downloadFromGithub(api: types.IExtensionApi, dlInfo: INexusDownlo
     } else {
       return downloadFromGithub(api, dlInfo);
     }
-  })
+  });
 }
