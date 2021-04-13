@@ -2,6 +2,13 @@ import { types } from 'vortex-api';
 
 export type UnityDoorstopType = 'none' | 'default' | 'unity3';
 
+export class NotPremiumError extends Error {
+  constructor() {
+    super('User is not premium');
+    this.name = 'NotPremiumError';
+  }
+}
+
 export interface IDoorstopConfig {
   // Depending on the game's modding pattern, the doorstop assembly
   //  can be installed as winhttp.dll, version.dll or not at all; winhttp.dll
@@ -61,6 +68,9 @@ export interface IBepInExGameConfig {
   validateBepInExConfiguration?: (bepinexPath: string) => Promise<types.ITestResult>;
 }
 
+export interface INexusDownloadInfoExt extends INexusDownloadInfo {
+  githubUrl: string;
+}
 export interface INexusDownloadInfo {
   // Refers to the domain of the package which is usually just a gameId unless 'site'
   //  is used instead.

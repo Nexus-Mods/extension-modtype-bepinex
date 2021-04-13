@@ -1,8 +1,9 @@
+import { defaultTo } from 'lodash';
 import path from 'path';
 import { actions, fs, log, selectors, types, util } from 'vortex-api';
 
-import { getSupportMap } from './common';
-import { IBepInExGameConfig, INexusDownloadInfo } from './types';
+import { NEXUS, getSupportMap } from './common';
+import { IBepInExGameConfig, INexusDownloadInfo, INexusDownloadInfoExt, NotPremiumError } from './types';
 
 function genDownloadProps(api: types.IExtensionApi, archiveName: string) {
   const state = api.getState();
@@ -36,7 +37,10 @@ async function install(api: types.IExtensionApi, downloadInfo: INexusDownloadInf
 
 async function download(api: types.IExtensionApi, downloadInfo: INexusDownloadInfo) {
   const { domainId, modId, fileId, archiveName, allowAutoInstall } = downloadInfo;
-
+  const state = api.getState();
+  if (!util.getSafe(state, ['persistent', 'nexus', 'userInfo', 'isPremium'], false)) {
+    return Promise.reject(new NotPremiumError());
+  }
   if (genDownloadProps(api, archiveName).downloadId !== undefined) {
     const { downloadId } = genDownloadProps(api, downloadInfo.archiveName);
     updateSupportedGames(api, downloadInfo);
@@ -80,9 +84,10 @@ export async function ensureBepInExPack(api: types.IExtensionApi,
     return;
   }
 
+  let downloadRes;
   if (gameConf.customPackDownloader !== undefined) {
     try {
-      const downloadRes = await gameConf.customPackDownloader(util.getVortexPath('temp'));
+      downloadRes = await gameConf.customPackDownloader(util.getVortexPath('temp'));
       if (downloadRes as INexusDownloadInfo !== undefined) {
         await download(api, (downloadRes as INexusDownloadInfo));
       } else if (typeof(downloadRes) === 'string') {
@@ -97,21 +102,98 @@ export async function ensureBepInExPack(api: types.IExtensionApi,
         return;
       }
     } catch (err) {
+      if (err instanceof NotPremiumError) {
+        const downloadInfo = downloadRes as INexusDownloadInfo;
+        const url = path.join(NEXUS, downloadInfo.domainId, 'mods', downloadInfo.modId)
+          + `?tab=files&file_id=${downloadRes.fileId}&nmm=1`;
+        util.opn(url)
+          .catch(err2 => api.showErrorNotification('Failed to download custom pack', err2,
+            { allowReport: false }));
+      }
       log('error', 'failed to download custom pack', err);
       return;
     }
   } else {
+    const defaultDownload: INexusDownloadInfoExt = {
+      gameId: gameConf.gameId,
+      domainId: 'site',
+      modId: '115',
+      fileId: '956',
+      archiveName: 'BepInEx_x64_5.4.8.0.zip',
+      allowAutoInstall: true,
+      githubUrl: 'https://github.com/BepInEx/BepInEx/releases/tag/v5.4.8'
+    }
     try {
-      await download(api, {
-        gameId: gameConf.gameId,
-        domainId: 'site',
-        modId: '115',
-        fileId: '956',
-        archiveName: 'BepInEx_x64_5.4.8.0.zip',
-        allowAutoInstall: true,
-      });
+      await download(api, defaultDownload);
     } catch (err) {
+      if (err instanceof NotPremiumError) {
+        const t = api.translate;
+        const replace = {
+          game: gameMode,
+          bl: '[br][/br][br][/br]',
+        };
+        api.showDialog('info', 'BepInEx Required', {
+          bbcode: t('The {{game}} game extension requires a widely used 3rd party assembly '
+          + 'patching/injection library called Bepis Injector Extensible (BepInEx).{{bl}}'
+          + 'Vortex can walk you through the download/installation process; once complete, BepInEx '
+          + 'will be available in your mods page to enable/disable just like any other regular mod. '
+          + 'Depending on the modding pattern of {{game}}, BepInEx may be a hard requirement '
+          + 'for mods to function in-game, in which case you MUST have the library enabled and deployed '
+          + 'at all times for the mods to work!{{bl}}'
+          + 'To remove the library, simply disable the mod entry for BepInEx.'
+          , { replace })
+        }, [
+          { label: 'Close' },
+          { 
+            label: 'Download BepInEx',
+            action: () => downloadFromGithub(api, defaultDownload),
+            default: true,
+          }
+        ])
+        return Promise.reject(err);
+      }
       log('error', 'failed to download default pack', err);
     }
   }
+}
+
+async function downloadFromGithub(api: types.IExtensionApi, dlInfo: INexusDownloadInfoExt) {
+  const t = api.translate;
+  const replace = {
+    archiveName: dlInfo.archiveName,
+  }
+  const instructions = t('Once you allow Vortex to browse to GitHub - '
+    + 'Please scroll down and click on "{{archiveName}}"', { replace });
+  return new Promise((resolve, reject) => {
+    api.emitAndAwait('browse-for-download', dlInfo.githubUrl, instructions)
+      .then((result: string[]) => {
+        if (!result || !result.length) {
+          // If the user clicks outside the window without downloading.
+          return reject(new util.UserCanceled());
+        }
+        if (!result[0].includes(dlInfo.archiveName)) {
+          return reject(new util.ProcessCanceled('Selected wrong download'));
+        }
+        api.events.emit('start-download', [result[0]], {}, undefined,
+          (error, id) => {
+            if (error !== null) {
+              return reject(error);
+            }
+            api.events.emit('start-install-download', id, true, (err, modId) => {
+              if (err) {
+                // Error notification gets reported by the event listener
+                log('error', 'Error installing download', err);
+              }
+              return resolve(undefined);
+            });
+          }, 'never');
+      });
+  })
+  .catch(err => {
+    if (err instanceof util.UserCanceled) {
+      return Promise.resolve();
+    } else {
+      return downloadFromGithub(api, dlInfo);
+    }
+  })
 }

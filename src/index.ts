@@ -7,7 +7,7 @@ import { ensureBepInExPack } from './bepInExDownloader';
 import { addGameSupport, getSupportMap } from './common';
 import { installInjector, installRootMod,
   testSupportedBepInExInjector, testSupportedRootMod } from './installers';
-import { IBepInExGameConfig } from './types';
+import { IBepInExGameConfig, NotPremiumError } from './types';
 import { createDirectories, toBlue } from './util';
 
 function showAttrib(state: types.IState) {
@@ -85,18 +85,7 @@ function init(context: types.IExtensionContext) {
   context.registerAPI('bepinexAddGame', (bepinexConf: IBepInExGameConfig,
                                          callback?: (err: Error) => void) => {
     if ((bepinexConf !== undefined) || ((bepinexConf as IBepInExGameConfig) === undefined)) {
-      const state = context.api.getState();
-      const isPremium = util.getSafe(state, ['persistent', 'nexus', 'userInfo', 'isPremium'], false);
-      if (!isPremium) {
-        // We can't automatically download anything if the user isn't premium.
-        //  The extension will notify the user to download the dependency from
-        //  BIX's github page.
-        bepinexConf.autoDownloadBepInEx = false;
-      }
       addGameSupport(bepinexConf);
-      if (bepinexConf.autoDownloadBepInEx) {
-        ensureBepInExPack(context.api);
-      }
     } else {
       callback?.(new util.DataInvalid('failed to register bepinex game, invalid object received'));
     }
@@ -212,7 +201,12 @@ function init(context: types.IExtensionContext) {
             },
           ],
           replace,
-        }));
+        }))
+        .catch(err => {
+          return (err instanceof NotPremiumError)
+            ? Promise.resolve()
+            : context.api.showErrorNotification('Failed to download/install BepInEx', err);
+        });
     });
 
     context.api.onAsync('will-deploy', async (profileId: string) => {
@@ -225,7 +219,12 @@ function init(context: types.IExtensionContext) {
       if (!isSupported(profile.gameId)) {
         return;
       }
-      return ensureBepInExPack(context.api, profile.gameId);
+      return ensureBepInExPack(context.api, profile.gameId)
+      .catch(err => {
+        return (err instanceof NotPremiumError)
+          ? Promise.resolve()
+          : context.api.showErrorNotification('Failed to download/install BepInEx', err);
+      });
     });
   });
 

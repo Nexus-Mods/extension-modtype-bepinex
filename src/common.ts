@@ -1,5 +1,6 @@
 import { IBepInExGameConfig } from './types';
 
+export const NEXUS = 'www.nexusmods.com';
 export const DOORSTOPPER_HOOK = 'winhttp.dll';
 export const DOORSTOPPER_CONFIG = 'doorstop_config.ini';
 export const DOORSTOP_FILES: string[] = [DOORSTOPPER_CONFIG, DOORSTOPPER_HOOK];
