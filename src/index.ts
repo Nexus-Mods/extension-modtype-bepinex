@@ -211,8 +211,9 @@ function init(context: types.IExtensionContext) {
 
     context.api.onAsync('will-deploy', async (profileId: string) => {
       const state = context.api.getState();
+      const activeProfile: types.IProfile = selectors.activeProfile(state);
       const profile = selectors.profileById(state, profileId);
-      if (profile?.gameId === undefined) {
+      if (profile?.gameId === undefined || profile.gameId !== activeProfile?.gameId) {
         return;
       }
 

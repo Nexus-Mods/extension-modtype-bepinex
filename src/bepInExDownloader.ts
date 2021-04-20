@@ -1,4 +1,3 @@
-import { defaultTo } from 'lodash';
 import path from 'path';
 import { actions, fs, log, selectors, types, util } from 'vortex-api';
 
