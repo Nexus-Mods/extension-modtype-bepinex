@@ -70,7 +70,10 @@ export async function installInjector(files: string[],
   if (doorStopConfig !== undefined) {
     try {
       const configFilePath = files.find(file => path.basename(file) === DOORSTOPPER_CONFIG);
-      await applyDoorStopConfig(doorStopConfig, path.join(destinationPath, configFilePath));
+      if (configFilePath !== undefined) {
+        // This BIX package uses UnityDoorstop - attempt to modify the configuration.
+        await applyDoorStopConfig(doorStopConfig, path.join(destinationPath, configFilePath));
+      }
     } catch (err) {
       return Promise.reject(err);
     }
