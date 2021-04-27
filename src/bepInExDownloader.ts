@@ -1,7 +1,7 @@
 import path from 'path';
 import { actions, fs, log, selectors, types, util } from 'vortex-api';
 
-import { getSupportMap, NEXUS } from './common';
+import { getDefaultDownload, getSupportMap, NEXUS } from './common';
 import { IBepInExGameConfig, INexusDownloadInfo, INexusDownloadInfoExt, NotPremiumError } from './types';
 
 function genDownloadProps(api: types.IExtensionApi, archiveName: string) {
@@ -24,12 +24,13 @@ function updateSupportedGames(api: types.IExtensionApi, downloadInfo: INexusDown
 
 async function install(api: types.IExtensionApi,
                        downloadInfo: INexusDownloadInfo,
-                       downloadId: string) {
+                       downloadId: string,
+                       force?: boolean) {
   const state = api.getState();
   if (downloadInfo.allowAutoInstall && state.settings.automation?.['install'] !== true) {
     const mods: { [modId: string]: types.IMod } =
       util.getSafe(state, ['persistent', 'mods', downloadInfo.gameId], {});
-    const isInjectorInstalled = Object.keys(mods).find(id =>
+    const isInjectorInstalled = (force) ? false : Object.keys(mods).find(id =>
       mods[id].type === 'bepinex-injector') !== undefined;
     if (!isInjectorInstalled) {
       api.events.emit('start-install-download', downloadId);
@@ -37,7 +38,8 @@ async function install(api: types.IExtensionApi,
   }
 }
 
-async function download(api: types.IExtensionApi, downloadInfo: INexusDownloadInfo) {
+async function download(api: types.IExtensionApi,
+                        downloadInfo: INexusDownloadInfo, force?: boolean) {
   const { domainId, modId, fileId, archiveName, allowAutoInstall } = downloadInfo;
   const state = api.getState();
   if (!util.getSafe(state, ['persistent', 'nexus', 'userInfo', 'isPremium'], false)) {
@@ -46,7 +48,7 @@ async function download(api: types.IExtensionApi, downloadInfo: INexusDownloadIn
   if (genDownloadProps(api, archiveName).downloadId !== undefined) {
     const { downloadId } = genDownloadProps(api, downloadInfo.archiveName);
     updateSupportedGames(api, downloadInfo);
-    return install(api, downloadInfo, downloadId);
+    return install(api, downloadInfo, downloadId, force);
   }
 
   return api.emitAndAwait('nexus-download',
@@ -54,7 +56,7 @@ async function download(api: types.IExtensionApi, downloadInfo: INexusDownloadIn
     .then(() => {
       const { downloadId } = genDownloadProps(api, downloadInfo.archiveName);
       updateSupportedGames(api, downloadInfo);
-      return install(api, downloadInfo, downloadId);
+      return install(api, downloadInfo, downloadId, force);
     })
     .catch(err => {
       log('error', 'failed to download from NexusMods.com',
@@ -91,7 +93,7 @@ export async function ensureBepInExPack(api: types.IExtensionApi,
     try {
       downloadRes = await gameConf.customPackDownloader(util.getVortexPath('temp'));
       if (downloadRes as INexusDownloadInfo !== undefined) {
-        await download(api, (downloadRes as INexusDownloadInfo));
+        await download(api, (downloadRes as INexusDownloadInfo), force);
       } else if (typeof(downloadRes) === 'string') {
         if (!path.isAbsolute(downloadRes)) {
           log('error', 'failed to download custom pack', 'expected absolute path');
@@ -116,17 +118,9 @@ export async function ensureBepInExPack(api: types.IExtensionApi,
       return;
     }
   } else {
-    const defaultDownload: INexusDownloadInfoExt = {
-      gameId: gameConf.gameId,
-      domainId: 'site',
-      modId: '115',
-      fileId: '956',
-      archiveName: 'BepInEx_x64_5.4.8.0.zip',
-      allowAutoInstall: true,
-      githubUrl: 'https://github.com/BepInEx/BepInEx/releases/tag/v5.4.8',
-    };
+    const defaultDownload = getDefaultDownload(gameConf.gameId);
     try {
-      await download(api, defaultDownload);
+      await download(api, defaultDownload, force);
     } catch (err) {
       if (err instanceof NotPremiumError) {
         const t = api.translate;

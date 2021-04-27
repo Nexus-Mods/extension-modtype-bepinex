@@ -1,13 +1,13 @@
 import * as path from 'path';
-import { log, selectors, types, util } from 'vortex-api';
+import { actions, log, selectors, types, util } from 'vortex-api';
 
 import AttribDashlet from './AttribDashlet';
 
 import { ensureBepInExPack } from './bepInExDownloader';
-import { addGameSupport, getSupportMap } from './common';
+import { addGameSupport, getDefaultDownload, getSupportMap } from './common';
 import { installInjector, installRootMod,
   testSupportedBepInExInjector, testSupportedRootMod } from './installers';
-import { IBepInExGameConfig, NotPremiumError } from './types';
+import { IBepInExGameConfig, INexusDownloadInfo, NotPremiumError } from './types';
 import { createDirectories, toBlue } from './util';
 
 function showAttrib(state: types.IState) {
@@ -19,6 +19,77 @@ function isSupported(gameId: string) {
   const isGameSupported = !['valheim'].includes(gameId);
   const isRegistered = getSupportMap()[gameId] !== undefined;
   return isGameSupported && isRegistered;
+}
+
+async function onCheckModVersion(api: types.IExtensionApi,
+                                 gameId: string,
+                                 mods: { [modId: string]: types.IMod }) {
+  const gameConf = getSupportMap()[gameId];
+  if (gameConf === undefined) {
+    return;
+  }
+
+  let state = api.getState();
+  const profileId = selectors.lastActiveProfileForGame(state, gameId);
+  if (profileId === undefined) {
+    return;
+  }
+  const profile = selectors.profileById(state, profileId);
+  if (profile === undefined) {
+    return;
+  }
+
+  const injectorModIds = Object.keys(mods).filter(id => mods[id]?.type === 'bepinex-injector');
+  const enabledId = injectorModIds.find(id => util.getSafe(profile,
+    ['modState', id, 'enabled'], false));
+
+  if (enabledId === undefined) {
+    return;
+  }
+
+  const injectorMod = mods[enabledId];
+  if (injectorMod === undefined) {
+    return;
+  }
+
+  const forceUpdate = (dwnl?: INexusDownloadInfo) => ensureBepInExPack(api, gameId, true)
+    .then(() => {
+      if (dwnl === undefined) {
+        return Promise.resolve();
+      }
+      state = api.getState();
+      const newMods: { [modId: string]: types.IMod } =
+        util.getSafe(state, ['persistent', 'mods', gameId], undefined);
+      const newInjector = Object.keys(newMods)
+        .find(id => newMods[id].attributes?.fileId === dwnl.fileId);
+
+      api.store.dispatch(actions.setModEnabled(profile.id, enabledId, false));
+      api.store.dispatch(actions.setModEnabled(profile.id, newInjector, true));
+    })
+    .catch(err => {
+      return (err instanceof NotPremiumError)
+        ? Promise.resolve()
+        : api.showErrorNotification('Failed to update BepInEx', err);
+    });
+
+  if (gameConf.customPackDownloader !== undefined) {
+    const res = await gameConf.customPackDownloader(util.getVortexPath('temp'));
+    if (typeof(res) === 'string') {
+      if (path.basename(res, path.extname(res)) !== injectorMod.id) {
+        return forceUpdate();
+      }
+    } else if ((res as INexusDownloadInfo) !== undefined) {
+      const nexDownload = res as INexusDownloadInfo;
+      if (nexDownload.fileId !== injectorMod.attributes?.fileId) {
+        return forceUpdate(nexDownload);
+      }
+    }
+  } else {
+    const download = getDefaultDownload(gameConf.gameId);
+    if (injectorMod.attributes?.fileId !== download.fileId) {
+      return forceUpdate(download);
+    }
+  }
 }
 
 function init(context: types.IExtensionContext) {
@@ -227,6 +298,10 @@ function init(context: types.IExtensionContext) {
           : context.api.showErrorNotification('Failed to download/install BepInEx', err);
       });
     });
+
+    context.api.events.on('check-mods-version',
+      (gameId: string, mods: { [modId: string]: types.IMod }) =>
+        onCheckModVersion(context.api, gameId, mods));
   });
 
   return true;
