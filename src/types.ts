@@ -43,6 +43,21 @@ export interface IBepInExGameConfig {
   // We're able to auto download the BepInEx package
   autoDownloadBepInEx: boolean;
 
+  // The required BepInEx version to use with this game
+  //  (USE SEMANTIC VERSIONING i.e. '5.4.10'). This should only be
+  //  used if/when the latest available version does not function correctly
+  //  with the game. Note that if specified, Vortex will ALWAYS ensure that this
+  //  version is downloaded and installed).
+  //  IMPORTANT - The Nexus Mods website does _not_ host all BepInEx
+  //  versions and only a select few are available to automatically download,
+  //  available versions can be seen here:
+  //  https://github.com/Nexus-Mods/extension-modtype-bepinex/blob/main/src/common.ts
+  //
+  // If the required version is not available, please use the customPackDownloader
+  //  functor (optional property - see below) to download and have Vortex install it
+  //  as a mod.
+  bepinexVersion?: string;
+
   // Relative path to the game's root directory where
   //  the game extension requires the BepInEx folder to be
   //  deployed to. Generally this should never have to be used
@@ -78,7 +93,7 @@ export interface INexusDownloadInfo {
 
   // The game we're downloading the file for - used to install the BepInEx package
   //  as soon as we finish downloading it (when auto installation is enabled)
-  gameId: string;
+  gameId?: string;
 
   // The numerical id of the mod.
   modId: string;
@@ -93,3 +108,5 @@ export interface INexusDownloadInfo {
   //  completes.
   allowAutoInstall?: boolean;
 }
+
+export interface IAvailableDownloads { [version: string]: INexusDownloadInfoExt; }

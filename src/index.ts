@@ -4,7 +4,7 @@ import { actions, log, selectors, types, util } from 'vortex-api';
 import AttribDashlet from './AttribDashlet';
 
 import { ensureBepInExPack } from './bepInExDownloader';
-import { addGameSupport, getDefaultDownload, getSupportMap } from './common';
+import { addGameSupport, getDownload, getSupportMap } from './common';
 import { installInjector, installRootMod,
   testSupportedBepInExInjector, testSupportedRootMod } from './installers';
 import { IBepInExGameConfig, INexusDownloadInfo, NotPremiumError } from './types';
@@ -28,7 +28,6 @@ async function onCheckModVersion(api: types.IExtensionApi,
   if (gameConf === undefined) {
     return;
   }
-
   let state = api.getState();
   const profileId = selectors.lastActiveProfileForGame(state, gameId);
   if (profileId === undefined) {
@@ -38,17 +37,21 @@ async function onCheckModVersion(api: types.IExtensionApi,
   if (profile === undefined) {
     return;
   }
-
   const injectorModIds = Object.keys(mods).filter(id => mods[id]?.type === 'bepinex-injector');
   const enabledId = injectorModIds.find(id => util.getSafe(profile,
     ['modState', id, 'enabled'], false));
 
   if (enabledId === undefined) {
+    // There are no enabled injector mods or potentially no injector mods
+    //  at all - nothing to update.
     return;
   }
 
   const injectorMod = mods[enabledId];
   if (injectorMod === undefined) {
+    // There's some type of data mismatch/corruption. We can't
+    //  find the mod entry for the injector mod so there's nothing we
+    //  can update.
     return;
   }
 
@@ -85,8 +88,8 @@ async function onCheckModVersion(api: types.IExtensionApi,
       }
     }
   } else {
-    const download = getDefaultDownload(gameConf.gameId);
-    if (injectorMod.attributes?.fileId !== download.fileId) {
+    const download = getDownload(gameConf);
+    if (injectorMod.attributes?.fileId !== +download.fileId) {
       return forceUpdate(download);
     }
   }

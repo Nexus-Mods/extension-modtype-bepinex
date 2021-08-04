@@ -1,4 +1,6 @@
-import { IBepInExGameConfig, INexusDownloadInfoExt } from './types';
+import { IAvailableDownloads, IBepInExGameConfig, INexusDownloadInfo, INexusDownloadInfoExt } from './types';
+
+import semver from 'semver';
 
 export const NEXUS = 'www.nexusmods.com';
 export const DOORSTOPPER_HOOK = 'winhttp.dll';
@@ -18,12 +20,42 @@ export const addGameSupport = (gameConf: IBepInExGameConfig) => {
   GAME_SUPPORT[gameConf.gameId] = gameConf;
 };
 
-export const getDefaultDownload = (gameId): INexusDownloadInfoExt => ({
-  gameId,
-  domainId: 'site',
-  modId: '115',
-  fileId: '1023',
-  archiveName: 'BepInEx_x64_5.4.10.0.zip',
-  allowAutoInstall: true,
-  githubUrl: 'https://github.com/BepInEx/BepInEx/releases/tag/v5.4.10',
-});
+const AVAILABLE: IAvailableDownloads = {
+  '5.4.10': {
+    domainId: 'site',
+    modId: '115',
+    fileId: '1023',
+    archiveName: 'BepInEx_x64_5.4.10.0.zip',
+    allowAutoInstall: true,
+    githubUrl: 'https://github.com/BepInEx/BepInEx/releases/tag/v5.4.10',
+  },
+  '5.4.13': {
+    domainId: 'site',
+    modId: '115',
+    fileId: '1137',
+    archiveName: 'BepInEx_x64_5.4.13.0.zip',
+    allowAutoInstall: true,
+    githubUrl: 'https://github.com/BepInEx/BepInEx/releases/tag/v5.4.13',
+  },
+};
+
+const getLatestVersion = (): string => {
+  const versions = Object.keys(AVAILABLE);
+  const latestVersion = versions.reduce((prev, iter) => {
+    if (semver.gt(iter, prev)) {
+      prev = iter;
+    }
+    return prev;
+  }, '5.4.10');
+  return latestVersion;
+};
+
+export const getDownload = (gameConf: IBepInExGameConfig): INexusDownloadInfoExt => {
+  const download: INexusDownloadInfoExt = ((gameConf.bepinexVersion !== undefined)
+        && Object.keys(AVAILABLE).includes(gameConf.bepinexVersion))
+    ? AVAILABLE[gameConf.bepinexVersion] : AVAILABLE[getLatestVersion()];
+  return {
+    ...download,
+    gameId: gameConf.gameId,
+  };
+};

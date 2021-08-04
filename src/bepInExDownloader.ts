@@ -1,7 +1,7 @@
 import path from 'path';
 import { actions, fs, log, selectors, types, util } from 'vortex-api';
 
-import { getDefaultDownload, getSupportMap, NEXUS } from './common';
+import { getDownload, getSupportMap, NEXUS } from './common';
 import { IBepInExGameConfig, INexusDownloadInfo, INexusDownloadInfoExt, NotPremiumError } from './types';
 
 function genDownloadProps(api: types.IExtensionApi, archiveName: string) {
@@ -79,6 +79,21 @@ export async function ensureBepInExPack(api: types.IExtensionApi,
 
   const mods: { [modId: string]: types.IMod } =
     util.getSafe(state, ['persistent', 'mods', gameId], {});
+
+  if (gameConf.bepinexVersion !== undefined) {
+    const dl = getDownload(gameConf);
+    const injectorModIds = Object.keys(mods).filter(id => mods[id]?.type === 'bepinex-injector');
+    const hasRequiredVersion = injectorModIds.reduce((prev, iter) => {
+      if (mods[iter]?.attributes?.fileId === +dl.fileId) {
+        prev = true;
+      }
+      return prev;
+    }, false);
+    if (!hasRequiredVersion) {
+      force = true;
+    }
+  }
+
   const isInjectorInstalled = (!force)
     ? Object.keys(mods).find(id => mods[id].type === 'bepinex-injector') !== undefined
     : false;
@@ -118,7 +133,7 @@ export async function ensureBepInExPack(api: types.IExtensionApi,
       return;
     }
   } else {
-    const defaultDownload = getDefaultDownload(gameConf.gameId);
+    const defaultDownload = getDownload(gameConf);
     try {
       await download(api, defaultDownload, force);
     } catch (err) {
