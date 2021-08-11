@@ -14,7 +14,7 @@ function genDownloadProps(api: types.IExtensionApi, archiveName: string) {
 function updateSupportedGames(api: types.IExtensionApi, downloadInfo: INexusDownloadInfo) {
   const { downloadId, downloads } = genDownloadProps(api, downloadInfo.archiveName);
   if (downloadId === undefined) {
-    return Promise.reject(new util.NotFound(`bepinex download is missing: ${downloadInfo.archiveName}`));
+    throw new util.NotFound(`bepinex download is missing: ${downloadInfo.archiveName}`);
   }
 
   const currentlySupported = downloads[downloadId].game;
@@ -33,7 +33,13 @@ async function install(api: types.IExtensionApi,
     const isInjectorInstalled = (force) ? false : Object.keys(mods).find(id =>
       mods[id].type === 'bepinex-injector') !== undefined;
     if (!isInjectorInstalled) {
-      api.events.emit('start-install-download', downloadId);
+      return new Promise<string>((resolve, reject) => {
+        api.events.emit('start-install-download', downloadId, true, (err, modId) => {
+          return (err) ? reject(err) : resolve(modId);
+        });
+      });
+    } else {
+      return Promise.resolve();
     }
   }
 }
@@ -45,18 +51,27 @@ async function download(api: types.IExtensionApi,
   if (!util.getSafe(state, ['persistent', 'nexus', 'userInfo', 'isPremium'], false)) {
     return Promise.reject(new NotPremiumError());
   }
-  if (genDownloadProps(api, archiveName).downloadId !== undefined) {
-    const { downloadId } = genDownloadProps(api, downloadInfo.archiveName);
-    updateSupportedGames(api, downloadInfo);
-    return install(api, downloadInfo, downloadId, force);
+
+  const downloadId = genDownloadProps(api, archiveName).downloadId;
+  if (downloadId !== undefined) {
+    try {
+      updateSupportedGames(api, downloadInfo);
+      return install(api, downloadInfo, downloadId, force);
+    } catch (err) {
+      return Promise.reject(err);
+    }
   }
 
   return api.emitAndAwait('nexus-download',
     domainId, modId, fileId, archiveName, allowAutoInstall)
     .then(() => {
       const { downloadId } = genDownloadProps(api, downloadInfo.archiveName);
-      updateSupportedGames(api, downloadInfo);
-      return install(api, downloadInfo, downloadId, force);
+      try {
+        updateSupportedGames(api, downloadInfo);
+        return install(api, downloadInfo, downloadId, force);
+      } catch (err) {
+        return Promise.reject(err);
+      }
     })
     .catch(err => {
       log('error', 'failed to download from NexusMods.com',
