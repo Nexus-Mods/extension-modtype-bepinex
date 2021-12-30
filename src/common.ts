@@ -37,6 +37,22 @@ const AVAILABLE: IAvailableDownloads = {
     allowAutoInstall: true,
     githubUrl: 'https://github.com/BepInEx/BepInEx/releases/tag/v5.4.13',
   },
+  '5.4.15': {
+    domainId: 'site',
+    modId: '115',
+    fileId: '1175',
+    archiveName: 'BepInEx_x64_5.4.15.0.zip',
+    allowAutoInstall: true,
+    githubUrl: 'https://github.com/BepInEx/BepInEx/releases/tag/v5.4.15',
+  },
+  '5.4.17': {
+    domainId: 'site',
+    modId: '115',
+    fileId: '1273',
+    archiveName: 'BepInEx_x64_5.4.17.0.zip',
+    allowAutoInstall: true,
+    githubUrl: 'https://github.com/BepInEx/BepInEx/releases/tag/v5.4.17',
+  },
 };
 
 const getLatestVersion = (): string => {
