@@ -87,11 +87,13 @@ async function onCheckModVersion(api: types.IExtensionApi,
         return forceUpdate(nexDownload);
       }
     }
-  } else {
+  } else if (gameConf.forceGithubDownload !== true) {
     const download = getDownload(gameConf);
     if (injectorMod.attributes?.fileId !== +download.fileId) {
       return forceUpdate(download);
     }
+  } else {
+    await ensureBepInExPack(api, gameConf.gameId);
   }
 }
 

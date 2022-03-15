@@ -36,12 +36,21 @@ export interface IDoorstopConfig {
   validateDoorStopConfig?: (doorStopAssemblyPath: string) => Promise<types.ITestResult>;
 }
 
+export type BepInExGithubVersion = 'any' | string;
 export interface IBepInExGameConfig {
   // Nexus Mods GameId.
   gameId: string;
 
   // We're able to auto download the BepInEx package
   autoDownloadBepInEx: boolean;
+
+  // Whether Vortex should bypass Nexus Mods by default and try
+  //  to download from Github directly - this property works in unison
+  //  with the below "bepinexVersion" property when attempting to resolve
+  //  which BIX version to use. If "bepinexVersion" isn't defined - the
+  //  downloader will always attempt to update to the latest available release
+  //  on Github.
+  forceGithubDownload?: boolean;
 
   // The required BepInEx version to use with this game
   //  (USE SEMANTIC VERSIONING i.e. '5.4.10'). This should only be

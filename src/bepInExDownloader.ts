@@ -1,8 +1,11 @@
 import path from 'path';
+import semver from 'semver';
 import { actions, fs, log, selectors, types, util } from 'vortex-api';
 
 import { getDownload, getSupportMap, NEXUS } from './common';
 import { IBepInExGameConfig, INexusDownloadInfo, INexusDownloadInfoExt, NotPremiumError } from './types';
+
+import { checkForUpdates, downloadBix } from './githubDownloader';
 
 function genDownloadProps(api: types.IExtensionApi, archiveName: string) {
   const state = api.getState();
@@ -82,7 +85,8 @@ async function download(api: types.IExtensionApi,
 }
 
 export async function ensureBepInExPack(api: types.IExtensionApi,
-                                        gameMode?: string, force?: boolean) {
+                                        gameMode?: string,
+                                        force?: boolean) {
   const state = api.getState();
   const gameId = (gameMode === undefined)
     ? selectors.activeGameId(state)
@@ -94,10 +98,9 @@ export async function ensureBepInExPack(api: types.IExtensionApi,
 
   const mods: { [modId: string]: types.IMod } =
     util.getSafe(state, ['persistent', 'mods', gameId], {});
-
-  if (gameConf.bepinexVersion !== undefined) {
+  const injectorModIds = Object.keys(mods).filter(id => mods[id]?.type === 'bepinex-injector');
+  if (gameConf.bepinexVersion !== undefined && gameConf.forceGithubDownload !== true) {
     const dl = getDownload(gameConf);
-    const injectorModIds = Object.keys(mods).filter(id => mods[id]?.type === 'bepinex-injector');
     const hasRequiredVersion = injectorModIds.reduce((prev, iter) => {
       if (mods[iter]?.attributes?.fileId === +dl.fileId) {
         prev = true;
@@ -105,6 +108,17 @@ export async function ensureBepInExPack(api: types.IExtensionApi,
       return prev;
     }, false);
     if (!hasRequiredVersion) {
+      force = true;
+    }
+  } else if (gameConf.forceGithubDownload === true) {
+    const latest = injectorModIds.reduce((prev, iter) => {
+      if (semver.gt(mods[iter]?.attributes?.version ?? '0.0.0', prev)) {
+        prev = mods[iter]?.attributes?.version;
+      }
+      return prev;
+    }, '0.0.0');
+    const value = await checkForUpdates(api, gameConf, latest);
+    if (value !== latest) {
       force = true;
     }
   }
@@ -147,40 +161,52 @@ export async function ensureBepInExPack(api: types.IExtensionApi,
       log('error', 'failed to download custom pack', err);
       return;
     }
-  } else {
+  } else if (gameConf.forceGithubDownload !== true) {
     const defaultDownload = getDownload(gameConf);
     try {
       await download(api, defaultDownload, force);
     } catch (err) {
       if (err instanceof NotPremiumError) {
-        const t = api.translate;
-        const replace = {
-          game: gameMode,
-          bl: '[br][/br][br][/br]',
-        };
-        api.showDialog('info', 'BepInEx Required', {
-          bbcode: t('The {{game}} game extension requires a widely used 3rd party assembly '
-          + 'patching/injection library called Bepis Injector Extensible (BepInEx).{{bl}}'
-          + 'Vortex can walk you through the download/installation process; once complete, BepInEx '
-          + 'will be available in your mods page to enable/disable just like any other regular mod. '
-          + 'Depending on the modding pattern of {{game}}, BepInEx may be a hard requirement '
-          + 'for mods to function in-game, in which case you MUST have the library enabled and deployed '
-          + 'at all times for the mods to work!{{bl}}'
-          + 'To remove the library, simply disable the mod entry for BepInEx.'
-          , { replace }),
-        }, [
-          { label: 'Close' },
-          {
-            label: 'Download BepInEx',
-            action: () => downloadFromGithub(api, defaultDownload),
-            default: true,
-          },
-        ]);
-        return Promise.reject(err);
+        const res = await raiseConsentDialog(api, gameConf);
+        if (res.action === 'Download BepInEx') {
+          return downloadFromGithub(api, defaultDownload);
+        }
       }
       log('error', 'failed to download default pack', err);
+      return Promise.reject(err);
+    }
+  } else {
+    try {
+      await downloadBix(api, gameConf);
+    } catch (err) {
+      return Promise.reject(err);
     }
   }
+}
+
+export async function raiseConsentDialog(api: types.IExtensionApi, gameConf: IBepInExGameConfig) {
+  const t = api.translate;
+  const replace = {
+    game: gameConf.gameId,
+    bl: '[br][/br][br][/br]',
+  };
+  return api.showDialog('info', 'BepInEx Required', {
+    bbcode: t('The {{game}} game extension requires a widely used 3rd party assembly '
+    + 'patching/injection library called Bepis Injector Extensible (BepInEx).{{bl}}'
+    + 'Vortex can walk you through the download/installation process; once complete, BepInEx '
+    + 'will be available in your mods page to enable/disable just like any other regular mod. '
+    + 'Depending on the modding pattern of {{game}}, BepInEx may be a hard requirement '
+    + 'for mods to function in-game, in which case you MUST have the library enabled and deployed '
+    + 'at all times for the mods to work!{{bl}}'
+    + 'To remove the library, simply disable the mod entry for BepInEx.'
+    , { replace }),
+  }, [
+    { label: 'Close' },
+    {
+      label: 'Download BepInEx',
+      default: true,
+    },
+  ]);
 }
 
 async function downloadFromGithub(api: types.IExtensionApi, dlInfo: INexusDownloadInfoExt) {
