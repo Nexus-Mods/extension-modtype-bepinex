@@ -86,11 +86,13 @@ async function download(api: types.IExtensionApi,
 
 export async function ensureBepInExPack(api: types.IExtensionApi,
                                         gameMode?: string,
-                                        force?: boolean) {
+                                        force?: boolean,
+                                        isUpdate?: boolean) {
   const state = api.getState();
   const gameId = (gameMode === undefined)
     ? selectors.activeGameId(state)
     : gameMode;
+  const profileId = selectors.lastActiveProfileForGame(state, gameId);
   const gameConf: IBepInExGameConfig = getSupportMap()[gameId];
   if (gameConf === undefined || !gameConf.autoDownloadBepInEx) {
     return;
@@ -110,17 +112,21 @@ export async function ensureBepInExPack(api: types.IExtensionApi,
     if (!hasRequiredVersion) {
       force = true;
     }
-  } else if (gameConf.forceGithubDownload === true) {
+  } else if (gameConf.forceGithubDownload === true && isUpdate) {
     const latest = injectorModIds.reduce((prev, iter) => {
       if (semver.gt(mods[iter]?.attributes?.version ?? '0.0.0', prev)) {
         prev = mods[iter]?.attributes?.version;
       }
       return prev;
     }, '0.0.0');
-    const value = await checkForUpdates(api, gameConf, latest);
-    if (value !== latest) {
-      force = true;
+    try {
+      await checkForUpdates(api, gameConf, latest);
+      const batched = injectorModIds.map(id => actions.setModEnabled(profileId, id, false));
+      util.batchDispatch(api.store, batched);
+    } catch (err) {
+      api.showErrorNotification('Failed to update BepInEx', err);
     }
+    return;
   }
 
   const isInjectorInstalled = (!force)

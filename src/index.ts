@@ -93,7 +93,7 @@ async function onCheckModVersion(api: types.IExtensionApi,
       return forceUpdate(download);
     }
   } else {
-    await ensureBepInExPack(api, gameConf.gameId);
+    await ensureBepInExPack(api, gameConf.gameId, false, true);
   }
 }
 
