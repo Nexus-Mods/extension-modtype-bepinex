@@ -36,10 +36,9 @@ async function applyDoorStopConfig(config: IDoorstopConfig, filePath: string) {
   return parser.write(filePath, iniData);
 }
 
-export async function testSupportedBepInExInjector(api: types.IExtensionApi, files: string[])
+export async function testSupportedBepInExInjector(files: string[], gameId: string)
   : Promise<types.ISupportedResult> {
-  const activeGameId = selectors.activeGameId(api.getState());
-  if (getSupportMap()[activeGameId] === undefined) {
+  if (getSupportMap()[gameId] === undefined) {
     return { supported: false, requiredFiles: [] };
   }
 
@@ -102,10 +101,9 @@ export async function installInjector(files: string[],
 }
 
 const ROOT_DIRS = ['plugins', 'config', 'patchers'];
-export async function testSupportedRootMod(api: types.IExtensionApi,
-                                           files: string[]): Promise<types.ISupportedResult> {
-  const activeGameId = selectors.activeGameId(api.getState());
-  if (getSupportMap()[activeGameId] === undefined) {
+export async function testSupportedRootMod(files: string[],
+                                           gameId: string): Promise<types.ISupportedResult> {
+  if (getSupportMap()[gameId] === undefined) {
     return { supported: false, requiredFiles: [] };
   }
 

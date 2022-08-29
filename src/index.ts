@@ -199,11 +199,11 @@ function init(context: types.IExtensionContext) {
   });
 
   context.registerInstaller('bepis-injector-extensible', 50,
-    toBlue((files) => testSupportedBepInExInjector(context.api, files)),
+    toBlue(testSupportedBepInExInjector),
     toBlue(installInjector));
 
   context.registerInstaller('bepinex-root', 50,
-    toBlue((files) => testSupportedRootMod(context.api, files)),
+    toBlue(testSupportedRootMod),
     toBlue(installRootMod));
 
   context.registerTest('bepinex-config-test', 'gamemode-activated',
