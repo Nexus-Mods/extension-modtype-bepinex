@@ -77,10 +77,14 @@ async function download(api: types.IExtensionApi,
       }
     })
     .catch(err => {
-      log('error', 'failed to download from NexusMods.com',
-        JSON.stringify(downloadInfo, undefined, 2));
-      err['attachLogOnReport'] = true;
-      api.showErrorNotification('Failed to download BepInEx dependency', err);
+      if (err instanceof util.UserCanceled) {
+        log('info', 'user canceled download of BepInEx');
+      } else {
+        log('error', 'failed to download from NexusMods.com',
+          JSON.stringify(downloadInfo, undefined, 2));
+        err['attachLogOnReport'] = true;
+        api.showErrorNotification('Failed to download BepInEx dependency', err);
+      }
     });
 }
 
