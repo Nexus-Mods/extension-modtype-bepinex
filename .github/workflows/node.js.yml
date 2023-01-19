@@ -13,7 +13,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v1
+      uses: actions/setup-node@v3
       with:
         node-version: ${{ matrix.node-version }}
     - name: Setup Python
@@ -21,24 +21,23 @@ jobs:
       with:
         python-version: '3.10'
         architecture: x64
-    - name: Get package values
-      uses: jarrettmeyer/github-action-package-values@v1
-      id: pkg
+    - name: Package.json info
+      uses: rexdefuror/read-package-json@v1.0.5
     - run: npm install
     - run: npm run build
     - name: Archive Release
       uses: thedoctor0/zip-release@main
       with:
         type: 'zip'
-        filename: '${{ steps.pkg.outputs.package_name }}.zip'
+        filename: '${{ env.PACKAGE_NAME }}.zip'
         path: './dist/*'
     - uses: actions/upload-artifact@v3
       with:
-        name: ${{ steps.pkg.outputs.package_name }}
-        path: ${{ github.workspace }}/${{ steps.pkg.outputs.package_name }}.zip
+        name: ${{ env.PACKAGE_NAME }}
+        path: ${{ github.workspace }}/${{ env.PACKAGE_NAME }}.zip
     - name: Release
       uses: softprops/action-gh-release@v1
       if: startsWith(github.ref, 'refs/tags/')
       with:
         files: |
-          ${{ steps.pkg.outputs.package_name }}.zip
+          ${{ env.PACKAGE_NAME }}.zip
