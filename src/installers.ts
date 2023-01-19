@@ -126,7 +126,9 @@ export async function installRootMod(files: string[],
     type: 'setmodtype',
     value: 'bepinex-root',
   };
-  const instructions: types.IInstruction[] = files.map(file => makeCopy(file, gameConfig));
+  const instructions: types.IInstruction[] = files
+    .filter(file => !file.endsWith(path.sep))
+    .map(file => makeCopy(file, gameConfig));
   instructions.push(modTypeInstruction);
   return Promise.resolve({ instructions });
 }

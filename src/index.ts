@@ -177,14 +177,14 @@ function init(context: types.IExtensionContext) {
   context.registerModType('bepinex-root', 50, isSupported,
   (game: types.IGame) => path.join(getPath(game), 'BepInEx'), toBlue(rootModTypeTest), {
     mergeMods: true,
-    name: '../BepInEx/',
+    name: 'BepInEx (root)',
   });
 
   context.registerModType('bepinex-plugin', 60, isSupported,
     (game: types.IGame) => path.join(getPath(game), 'BepInEx', 'plugins'),
     toBlue(pluginModTypeTest), {
     mergeMods: true,
-    name: '../BepInEx/plugins/',
+    name: 'BepInEx (plugins)',
   });
 
   // There's currently no reliable way to differentiate BepInEx plugins from patchers,
@@ -195,7 +195,7 @@ function init(context: types.IExtensionContext) {
     (game: types.IGame) => path.join(getPath(game), 'BepInEx', 'patchers'),
     toBlue(() => Promise.resolve(false)), {
     mergeMods: true,
-    name: '../BepInEx/patchers/',
+    name: 'BepInEx (patchers)',
   });
 
   context.registerInstaller('bepis-injector-extensible', 50,
