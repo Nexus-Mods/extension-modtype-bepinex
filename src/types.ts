@@ -36,7 +36,18 @@ export interface IDoorstopConfig {
   validateDoorStopConfig?: (doorStopAssemblyPath: string) => Promise<types.ITestResult>;
 }
 
-export type BepInExGithubVersion = 'any' | string;
+export interface IGithubAsset {
+  name: string;
+  browser_download_url: string;
+}
+
+export interface IGithubRelease {
+  tag_name: string;
+  assets: IGithubAsset[];
+}
+
+export type BepInExArchitecture = 'x86' | 'x64' | 'unix';
+export type BepInExUnityBuild = 'unitymono' | 'unityil2cpp';
 export interface IBepInExGameConfig {
   // Nexus Mods GameId.
   gameId: string;
@@ -51,6 +62,14 @@ export interface IBepInExGameConfig {
   //  downloader will always attempt to update to the latest available release
   //  on Github.
   forceGithubDownload?: boolean;
+
+  // The architecture of the game we're modding.
+  architecture?: BepInExArchitecture;
+
+  // The unity build of the BepInEx package (mono or il2cpp).
+  //  Please note that using il2cpp will force this extension to resolve
+  //  to 6.0.0 =< versions.
+  unityBuild?: BepInExUnityBuild;
 
   // The required BepInEx version to use with this game
   //  (USE SEMANTIC VERSIONING i.e. '5.4.10'). This should only be

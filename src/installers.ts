@@ -1,10 +1,9 @@
 import path from 'path';
 import Parser, { IniFile, WinapiFormat } from 'vortex-parse-ini';
-import { DOORSTOPPER_CONFIG, DOORSTOPPER_HOOK, getSupportMap,
-  INJECTOR_FILES } from './common';
+import { DOORSTOPPER_CONFIG, DOORSTOPPER_HOOK, getSupportMap, INJECTOR_FILES } from './common';
 import { IBepInExGameConfig, IDoorstopConfig, UnityDoorstopType } from './types';
 
-import { selectors, types } from 'vortex-api';
+import { types } from 'vortex-api';
 
 function makeCopy(source: string, gameConfig: IBepInExGameConfig,
                   alternativeFileName?: string): types.IInstruction {
@@ -44,8 +43,10 @@ export async function testSupportedBepInExInjector(files: string[], gameId: stri
 
   const filesMatched = files.filter(file =>
     INJECTOR_FILES.map(f => f.toLowerCase()).includes(path.basename(file).toLowerCase()));
+  // 6.0.0 and 5.4.X have different file requirements - BepInEx.dll changed to BepInEx.Core.dll
+  //  amongst other changes.
   return Promise.resolve({
-    supported: (filesMatched.length === INJECTOR_FILES.length),
+    supported: (filesMatched.length >= INJECTOR_FILES.length - 4),
     requiredFiles: [],
   });
 }

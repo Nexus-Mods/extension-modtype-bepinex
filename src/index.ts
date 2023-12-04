@@ -1,3 +1,4 @@
+/* eslint-disable */
 import * as path from 'path';
 import { actions, log, selectors, types, util } from 'vortex-api';
 
@@ -65,9 +66,11 @@ async function onCheckModVersion(api: types.IExtensionApi,
         util.getSafe(state, ['persistent', 'mods', gameId], undefined);
       const newInjector = Object.keys(newMods)
         .find(id => newMods[id].attributes?.fileId === dwnl.fileId);
-
-      api.store.dispatch(actions.setModEnabled(profile.id, enabledId, false));
-      api.store.dispatch(actions.setModEnabled(profile.id, newInjector, true));
+      const batched = [
+        actions.setModEnabled(profile.id, enabledId, false),
+        actions.setModEnabled(profile.id, newInjector, true)
+      ];
+      util.batchDispatch(api.store, batched);
     })
     .catch(err => {
       return (err instanceof NotPremiumError)
@@ -173,36 +176,41 @@ function init(context: types.IExtensionContext) {
     name: 'Bepis Injector Extensible',
   });
 
+  // There's currently no reliable way to differentiate BepInEx plugins from patchers,
+  //  apart from the mod's description specifying where to deploy the mod. Unlike regular
+  //  plugins, patchers should only be used in special cases, which is why
+  //  we don't want this to be assigned by default.
+  context.registerModType('bepinex-patcher', 11, isSupported,
+    (game: types.IGame) => path.join(getPath(game), 'BepInEx', 'patchers'),
+    modTypeTest, {
+    mergeMods: true,
+    name: 'BepInEx (patchers)',
+  });
+
   // Assigned to any mod that contains the plugins, patchers, config directories
-  context.registerModType('bepinex-root', 50, isSupported,
+  context.registerModType('bepinex-root', 12, isSupported,
   (game: types.IGame) => path.join(getPath(game), 'BepInEx'), toBlue(rootModTypeTest), {
     mergeMods: true,
     name: 'BepInEx (root)',
   });
 
-  context.registerModType('bepinex-plugin', 60, isSupported,
+  context.registerModType('bepinex-plugin', 13, isSupported,
     (game: types.IGame) => path.join(getPath(game), 'BepInEx', 'plugins'),
     toBlue(pluginModTypeTest), {
     mergeMods: true,
     name: 'BepInEx (plugins)',
   });
 
-  // There's currently no reliable way to differentiate BepInEx plugins from patchers,
-  //  apart from the mod's description specifying where to deploy the mod. Unlike regular
-  //  plugins, patchers should only be used only in special cases, which is why
-  //  we don't want this to be assigned by default.
-  context.registerModType('bepinex-patcher', 25, isSupported,
-    (game: types.IGame) => path.join(getPath(game), 'BepInEx', 'patchers'),
-    toBlue(() => Promise.resolve(false)), {
-    mergeMods: true,
-    name: 'BepInEx (patchers)',
-  });
-
-  context.registerInstaller('bepis-injector-extensible', 50,
+  // Most of our extension development tutorials suggest that extension authors
+  //  should use priority 25 for their installers. Given that this is an API
+  //  functionality, we should ensure that our installers are run before any
+  //  extension installers.
+  //  TODO: Make sure this is documented in the API docs.
+  context.registerInstaller('bepis-injector-extensible', 10,
     toBlue(testSupportedBepInExInjector),
     toBlue(installInjector));
 
-  context.registerInstaller('bepinex-root', 50,
+  context.registerInstaller('bepinex-root', 10,
     toBlue(testSupportedRootMod),
     toBlue(installRootMod));
 
@@ -238,7 +246,7 @@ function init(context: types.IExtensionContext) {
         return;
       }
       const replace = {
-        game: gameMode,
+        game: util.getGame(gameMode)?.name || gameMode,
         bl: '[br][/br][br][/br]',
         bixUrl: '[url=https://github.com/BepInEx/BepInEx/releases]BepInEx Release[/url]',
       };

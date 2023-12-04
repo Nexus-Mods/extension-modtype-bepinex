@@ -1,4 +1,4 @@
-import { IAvailableDownloads, IBepInExGameConfig, INexusDownloadInfo, INexusDownloadInfoExt } from './types';
+import { IAvailableDownloads, IBepInExGameConfig, INexusDownloadInfoExt } from './types';
 
 import semver from 'semver';
 
@@ -7,7 +7,8 @@ export const DOORSTOPPER_HOOK = 'winhttp.dll';
 export const DOORSTOPPER_CONFIG = 'doorstop_config.ini';
 export const DOORSTOP_FILES: string[] = [DOORSTOPPER_CONFIG, DOORSTOPPER_HOOK];
 export const INJECTOR_FILES: string[] = [
-  '0Harmony.dll', '0Harmony.xml', '0Harmony20.dll', 'BepInEx.dll', 'BepInEx.Harmony.dll',
+  '0Harmony.dll', '0Harmony.xml', '0Harmony20.dll', 'BepInEx.dll', 'BepInEx.Core.dll',
+  'BepInEx.Preloader.Core.dll', 'BepInEx.Preloader.Unity.dll', 'BepInEx.Harmony.dll',
   'BepInEx.Harmony.xml', 'BepInEx.Preloader.dll', 'BepInEx.Preloader.xml',
   'BepInEx.xml', 'HarmonyXInterop.dll', 'Mono.Cecil.dll', 'Mono.Cecil.Mdb.dll',
   'Mono.Cecil.Pdb.dll', 'Mono.Cecil.Rocks.dll', 'MonoMod.RuntimeDetour.dll',
@@ -16,8 +17,28 @@ export const INJECTOR_FILES: string[] = [
 
 const GAME_SUPPORT: { [gameId: string]: IBepInExGameConfig } = {};
 export const getSupportMap = () => GAME_SUPPORT;
+export const generateRegexp = (gameConf: IBepInExGameConfig): RegExp => {
+  // Depending on the game config's github parameters this will generate a regexp
+  //  that will match the download link for the BepInEx package.
+  const { architecture, bepinexVersion, unityBuild } = gameConf;
+  const arch = architecture !== undefined ? architecture : 'x64';
+  const version = bepinexVersion !== undefined ? bepinexVersion : '.*';
+  const unity = unityBuild !== undefined ? `${unityBuild}_` : '';
+  const regex = `BepInEx_${unity}${arch}_${version}.*[.zip|.7z]`;
+  return new RegExp(regex, 'i');
+}
+
 export const addGameSupport = (gameConf: IBepInExGameConfig) => {
-  GAME_SUPPORT[gameConf.gameId] = gameConf;
+  if ((gameConf.unityBuild === 'unityil2cpp')
+   && (gameConf.bepinexVersion !== undefined)
+   && (semver.lt(gameConf.bepinexVersion, '6.0.0'))) {
+    throw new Error('IL2CPP builds require BepInEx 6.0.0 or above');
+  } else {
+    if (gameConf.unityBuild === 'unityil2cpp' && gameConf.bepinexVersion === undefined) {
+      gameConf.bepinexVersion = '6.0.0';
+    }
+    GAME_SUPPORT[gameConf.gameId] = gameConf;
+  }
 };
 
 const AVAILABLE: IAvailableDownloads = {

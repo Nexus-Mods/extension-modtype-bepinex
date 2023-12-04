@@ -1,19 +1,21 @@
+/* eslint-disable */
 import * as https from 'https';
 import * as _ from 'lodash';
 import * as semver from 'semver';
 import * as url from 'url';
 
-import { IBepInExGameConfig } from './types';
+import { IBepInExGameConfig, IGithubRelease } from './types';
 
 import { raiseConsentDialog } from './bepInExDownloader';
 
 import { IncomingHttpHeaders, IncomingMessage } from 'http';
 import { actions, log, selectors, types, util } from 'vortex-api';
+import { generateRegexp } from './common';
 
 const GITHUB_URL = 'https://api.github.com/repos/BepInEx/BepInEx';
 const BIX_LANDING = 'https://github.com/BepInEx/BepInEx';
 
-function query(baseUrl: string, request: string): Promise<any> {
+function query(baseUrl: string, request: string): Promise<IGithubRelease[]> {
   return new Promise((resolve, reject) => {
     const getRequest = getRequestOptions(`${baseUrl}/${request}`);
     https.get(getRequest, (res: IncomingMessage) => {
@@ -45,7 +47,7 @@ function query(baseUrl: string, request: string): Promise<any> {
   });
 }
 
-function getRequestOptions(link) {
+function getRequestOptions(link: string) {
   const relUrl = url.parse(link);
   return ({
     ..._.pick(relUrl, ['port', 'hostname', 'path']),
@@ -80,10 +82,11 @@ async function notifyUpdate(api: types.IExtensionApi,
         current,
       },
       actions: [
-        { title : 'More', action: (dismiss: () => void) => {
+        {
+          title: 'More', action: (dismiss: () => void) => {
             api.showDialog('info', '{{name}} Update', {
               text: 'Vortex has detected a newer version of {{name}} ({{latest}}) available to download from {{website}}. You currently have version {{current}} installed.'
-              + '\nVortex can download and attempt to install the new update for you.',
+                + '\nVortex can download and attempt to install the new update for you.',
               parameters: {
                 name: 'BepInEx',
                 website: BIX_LANDING,
@@ -91,14 +94,14 @@ async function notifyUpdate(api: types.IExtensionApi,
                 current,
               },
             }, [
-                {
-                  label: 'Download',
-                  action: () => {
-                    resolve();
-                    dismiss();
-                  },
+              {
+                label: 'Download',
+                action: () => {
+                  resolve();
+                  dismiss();
                 },
-              ]);
+              },
+            ]);
           },
         },
         {
@@ -113,27 +116,24 @@ async function notifyUpdate(api: types.IExtensionApi,
   });
 }
 
-export async function getLatestReleases(currentVersion: string) {
+export async function getLatestReleases(currentVersion: string): Promise<IGithubRelease[]> {
   if (GITHUB_URL) {
     return query(GITHUB_URL, 'releases')
-    .then((releases) => {
-      if (!Array.isArray(releases)) {
-        return Promise.reject(new util.DataInvalid('expected array of github releases'));
-      }
-      const current = releases
-        .filter(rel => {
-          const tagName = util.getSafe(rel, ['tag_name'], undefined);
-          const isPreRelease = util.getSafe(rel, ['prerelease'], false);
-          const version = semver.valid(tagName);
+      .then((releases) => {
+        if (!Array.isArray(releases)) {
+          return Promise.reject(new util.DataInvalid('expected array of github releases'));
+        }
+        const current = releases
+          .filter(rel => {
+            const tagName = util.getSafe(rel, ['tag_name'], '5.4.22');
+            const version = semver.valid(tagName);
 
-          return (!isPreRelease
-            && (version !== null)
-            && ((currentVersion === undefined) || (semver.gte(version, currentVersion))));
-        })
-        .sort((lhs, rhs) => semver.compare(rhs.tag_name, lhs.tag_name));
-
-      return Promise.resolve(current);
-    });
+            return (version !== null)
+              && ((currentVersion === undefined) || (semver.gte(version, currentVersion)));
+          })
+          .sort((lhs, rhs) => semver.compare(rhs.tag_name, lhs.tag_name));
+        return Promise.resolve(current);
+      });
   }
 }
 
@@ -158,7 +158,7 @@ async function startDownload(api: types.IExtensionApi,
     (error, id) => {
       if (error !== null) {
         if ((error.name === 'AlreadyDownloaded')
-            && (error.downloadId !== undefined)) {
+          && (error.downloadId !== undefined)) {
           id = error.downloadId;
         } else {
           api.showErrorNotification('Download failed',
@@ -187,9 +187,8 @@ async function startDownload(api: types.IExtensionApi,
 }
 
 async function resolveDownloadLink(gameConf: IBepInExGameConfig, currentReleases: any[]) {
-  const versionRgx = gameConf.bepinexVersion === undefined
-    ? '[0-9].[0-9].*' : `${gameConf.bepinexVersion}.*`;
-  const rgx = new RegExp(`^BepInEx_x64_${versionRgx}.(zip|7z)$`, 'i');
+  const rgx = generateRegexp(gameConf);
+  let assetLink: string | undefined;
   const matchingRelease = currentReleases.find((release, idx) => {
     if (gameConf.bepinexVersion === undefined && idx === 0) {
       return true;
@@ -199,7 +198,10 @@ async function resolveDownloadLink(gameConf: IBepInExGameConfig, currentReleases
         return false;
       } else {
         const matches = release.assets.filter(asset => rgx.test(asset.name));
-        return matches.length > 0;
+        if (matches.length > 0) {
+          assetLink = matches[0].browser_download_url;
+          return true;
+        }
       }
     } else {
       return false;
@@ -208,7 +210,7 @@ async function resolveDownloadLink(gameConf: IBepInExGameConfig, currentReleases
   if (matchingRelease === undefined) {
     return Promise.reject(new util.DataInvalid('Failed to find matching BepInEx archive'));
   }
-  const downloadLink = matchingRelease.assets[0]?.browser_download_url;
+  const downloadLink = assetLink || matchingRelease.assets[0].browser_download_url;
   return (downloadLink === undefined)
     ? Promise.reject(new util.DataInvalid('Failed to resolve browser download url'))
     : Promise.resolve({ version: matchingRelease.tag_name.slice(1), downloadLink });
@@ -247,8 +249,8 @@ export async function checkForUpdates(api: types.IExtensionApi,
     });
 }
 
-export async function downloadBix(api: types.IExtensionApi,
-                                  gameConf: IBepInExGameConfig): Promise<void> {
+export async function downloadFromGithub(api: types.IExtensionApi,
+                                         gameConf: IBepInExGameConfig): Promise<void> {
   return getLatestReleases(undefined)
     .then(async currentReleases => {
       const { version, downloadLink } = await resolveDownloadLink(gameConf, currentReleases);
