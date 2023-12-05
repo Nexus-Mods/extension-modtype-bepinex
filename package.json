@@ -5,8 +5,9 @@
   "main": "./out/index.js",
   "repository": "",
   "scripts": {
+    "copyassets": "copyfiles -f ./src/assets/* ./dist/",
     "webpack": "node ./node_modules/webpack/bin/webpack --config webpack.config.js --progress --profile --color",
-    "build": "npm run webpack && extractInfo"
+    "build": "npm run webpack && extractInfo && npm run copyassets"
   },
   "author": "Black Tree Gaming Ltd.",
   "license": "GPL-3.0",
@@ -15,10 +16,14 @@
     "@types/redux": "^3.6.0",
     "babel-loader": "^9.1.0",
     "bluebird": "^3.5.0",
+    "copyfiles": "^2.4.1",
     "i18next": "^8.4.3",
     "ts-loader": "^9.4.1",
     "vortex-api": "Nexus-Mods/vortex-api",
     "webpack": "^5.75.0",
     "webpack-cli": "^5.0.0"
+  },
+  "dependencies": {
+    "@iarna/toml": "^2.2.5"
   }
 }

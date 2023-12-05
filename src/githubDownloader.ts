@@ -10,7 +10,7 @@ import { raiseConsentDialog } from './bepInExDownloader';
 
 import { IncomingHttpHeaders, IncomingMessage } from 'http';
 import { actions, log, selectors, types, util } from 'vortex-api';
-import { generateRegexp } from './common';
+import { generateRegExp } from './common';
 
 const GITHUB_URL = 'https://api.github.com/repos/BepInEx/BepInEx';
 const BIX_LANDING = 'https://github.com/BepInEx/BepInEx';
@@ -187,14 +187,14 @@ async function startDownload(api: types.IExtensionApi,
 }
 
 async function resolveDownloadLink(gameConf: IBepInExGameConfig, currentReleases: any[]) {
-  const rgx = generateRegexp(gameConf);
+  const rgx = generateRegExp(gameConf);
   let assetLink: string | undefined;
   const matchingRelease = currentReleases.find((release, idx) => {
     if (gameConf.bepinexVersion === undefined && idx === 0) {
       return true;
     } else if (gameConf.bepinexVersion !== undefined) {
       const tagVer = release.tag_name.slice(1);
-      if (tagVer !== gameConf.bepinexVersion) {
+      if (semver.coerce(tagVer).raw !== gameConf.bepinexVersion) {
         return false;
       } else {
         const matches = release.assets.filter(asset => rgx.test(asset.name));

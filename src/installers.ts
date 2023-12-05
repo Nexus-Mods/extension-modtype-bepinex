@@ -1,7 +1,9 @@
+/* eslint-disable */
 import path from 'path';
 import Parser, { IniFile, WinapiFormat } from 'vortex-parse-ini';
-import { DOORSTOPPER_CONFIG, DOORSTOPPER_HOOK, getSupportMap, INJECTOR_FILES } from './common';
+import { BEPINEX_CONFIG_REL_PATH, DOORSTOPPER_CONFIG, DOORSTOPPER_HOOK, getSupportMap, INJECTOR_FILES } from './common';
 import { IBepInExGameConfig, IDoorstopConfig, UnityDoorstopType } from './types';
+import { resolveBepInExConfiguration } from './util';
 
 import { types } from 'vortex-api';
 
@@ -35,6 +37,7 @@ async function applyDoorStopConfig(config: IDoorstopConfig, filePath: string) {
   return parser.write(filePath, iniData);
 }
 
+const MINIMUM_INJECTOR_MATCHES = 8;
 export async function testSupportedBepInExInjector(files: string[], gameId: string)
   : Promise<types.ISupportedResult> {
   if (getSupportMap()[gameId] === undefined) {
@@ -43,10 +46,8 @@ export async function testSupportedBepInExInjector(files: string[], gameId: stri
 
   const filesMatched = files.filter(file =>
     INJECTOR_FILES.map(f => f.toLowerCase()).includes(path.basename(file).toLowerCase()));
-  // 6.0.0 and 5.4.X have different file requirements - BepInEx.dll changed to BepInEx.Core.dll
-  //  amongst other changes.
   return Promise.resolve({
-    supported: (filesMatched.length >= INJECTOR_FILES.length - 4),
+    supported: (filesMatched.length > MINIMUM_INJECTOR_MATCHES),
     requiredFiles: [],
   });
 }
@@ -78,6 +79,14 @@ export async function installInjector(files: string[],
       return Promise.reject(err);
     }
   }
+
+  const configData = await resolveBepInExConfiguration(gameId);
+  const configInstr: types.IInstruction = {
+    type: 'generatefile',
+    data: configData,
+    destination: BEPINEX_CONFIG_REL_PATH,
+  };
+
   const instructions: types.IInstruction[] = files.reduce((accum, file) => {
     if (!path.extname(file)) {
       return accum;
@@ -96,7 +105,7 @@ export async function installInjector(files: string[],
       accum.push(makeCopy(file, gameConfig));
     }
     return accum;
-  }, [modTypeInstruction, attribInstr]);
+  }, [modTypeInstruction, attribInstr, configInstr]);
 
   return Promise.resolve({ instructions });
 }

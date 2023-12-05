@@ -86,6 +86,17 @@ export interface IBepInExGameConfig {
   //  as a mod.
   bepinexVersion?: string;
 
+  // The game extension can have its own BepInEx configuration object defined
+  //  this will be used to generate the BepInEx configuration file when installing
+  //  the package. See the documentation for available parameters
+  //  https://docs.bepinex.dev/articles/user_guide/configuration.html
+  //
+  // IMPORTANT - ".cfg" files use the TOML format, please ensure that the object
+  //  you provide is valid TOML.
+  // ALTERNATIVELY - You can provide a BepInEx.cfg file alongside your extension
+  //  and it will be used instead of the object. (The object has priority though!)
+  bepinexConfigObject?: any;
+
   // Relative path to the game's root directory where
   //  the game extension requires the BepInEx folder to be
   //  deployed to. Generally this should never have to be used

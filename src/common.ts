@@ -1,3 +1,4 @@
+import path from 'path';
 import { IAvailableDownloads, IBepInExGameConfig, INexusDownloadInfoExt } from './types';
 
 import semver from 'semver';
@@ -5,6 +6,8 @@ import semver from 'semver';
 export const NEXUS = 'www.nexusmods.com';
 export const DOORSTOPPER_HOOK = 'winhttp.dll';
 export const DOORSTOPPER_CONFIG = 'doorstop_config.ini';
+export const BEPINEX_CONFIG_FILE = 'BepInEx.cfg';
+export const BEPINEX_CONFIG_REL_PATH = path.join('BepInEx', 'config', BEPINEX_CONFIG_FILE);
 export const DOORSTOP_FILES: string[] = [DOORSTOPPER_CONFIG, DOORSTOPPER_HOOK];
 export const INJECTOR_FILES: string[] = [
   '0Harmony.dll', '0Harmony.xml', '0Harmony20.dll', 'BepInEx.dll', 'BepInEx.Core.dll',
@@ -17,7 +20,7 @@ export const INJECTOR_FILES: string[] = [
 
 const GAME_SUPPORT: { [gameId: string]: IBepInExGameConfig } = {};
 export const getSupportMap = () => GAME_SUPPORT;
-export const generateRegexp = (gameConf: IBepInExGameConfig): RegExp => {
+export const generateRegExp = (gameConf: IBepInExGameConfig): RegExp => {
   // Depending on the game config's github parameters this will generate a regexp
   //  that will match the download link for the BepInEx package.
   const { architecture, bepinexVersion, unityBuild } = gameConf;
