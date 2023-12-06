@@ -142,7 +142,10 @@ export interface INexusDownloadInfo {
   gameId?: string;
 
   // The mod's version, this can usually be "guessed" using the file's name.
-  version?: string;
+  version: string;
+
+  // x86 or x64
+  architecture: BepInExArchitecture;
 
   // The numerical id of the mod.
   modId: string;

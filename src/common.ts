@@ -57,7 +57,8 @@ export const addGameSupport = (gameConf: IBepInExGameConfig) => {
 };
 
 const AVAILABLE: IAvailableDownloads = {
-  '5.4.10': {
+  '5.4.10x64': {
+    architecture: 'x64',
     domainId: 'site',
     version: '5.4.10',
     modId: '115',
@@ -66,7 +67,8 @@ const AVAILABLE: IAvailableDownloads = {
     allowAutoInstall: true,
     githubUrl: 'https://github.com/BepInEx/BepInEx/releases/tag/v5.4.10',
   },
-  '5.4.13': {
+  '5.4.13x64': {
+    architecture: 'x64',
     domainId: 'site',
     version: '5.4.13',
     modId: '115',
@@ -75,7 +77,8 @@ const AVAILABLE: IAvailableDownloads = {
     allowAutoInstall: true,
     githubUrl: 'https://github.com/BepInEx/BepInEx/releases/tag/v5.4.13',
   },
-  '5.4.15': {
+  '5.4.15x64': {
+    architecture: 'x64',
     domainId: 'site',
     version: '5.4.15',
     modId: '115',
@@ -84,7 +87,8 @@ const AVAILABLE: IAvailableDownloads = {
     allowAutoInstall: true,
     githubUrl: 'https://github.com/BepInEx/BepInEx/releases/tag/v5.4.15',
   },
-  '5.4.17': {
+  '5.4.17x64': {
+    architecture: 'x64',
     domainId: 'site',
     version: '5.4.17',
     modId: '115',
@@ -93,23 +97,45 @@ const AVAILABLE: IAvailableDownloads = {
     allowAutoInstall: true,
     githubUrl: 'https://github.com/BepInEx/BepInEx/releases/tag/v5.4.17',
   },
+  '5.4.22x86': {
+    architecture: 'x86',
+    domainId: 'site',
+    version: '5.4.22',
+    modId: '115',
+    fileId: '2528',
+    archiveName: 'BepInEx_x86_5.4.22.0.zip',
+    allowAutoInstall: true,
+    githubUrl: 'https://github.com/BepInEx/BepInEx/releases/tag/v5.4.22',
+  },
+  '5.4.22x64': {
+    architecture: 'x64',
+    domainId: 'site',
+    version: '5.4.22',
+    modId: '115',
+    fileId: '2526',
+    archiveName: 'BepInEx_x64_5.4.22.0.zip',
+    allowAutoInstall: true,
+    githubUrl: 'https://github.com/BepInEx/BepInEx/releases/tag/v5.4.22',
+  },
 };
 
-const getLatestVersion = (): string => {
-  const versions = Object.keys(AVAILABLE);
+const getLatestVersion = (arch: string): string => {
+  const versions = Object.values(AVAILABLE);
   const latestVersion = versions.reduce((prev, iter) => {
-    if (semver.gt(iter, prev)) {
-      prev = iter;
+    if (semver.gt(iter.version, prev)) {
+      prev = iter.version;
     }
     return prev;
-  }, '5.4.10');
-  return latestVersion;
+  }, DEFAULT_VERSION);
+  return `${latestVersion}${arch}`;
 };
 
 export const getDownload = (gameConf: IBepInExGameConfig): INexusDownloadInfoExt => {
+  const arch = !!gameConf.architecture ? gameConf.architecture : 'x64';
+  const versionKey = `${gameConf.bepinexVersion}${arch}`;
   const download: INexusDownloadInfoExt = ((gameConf.bepinexVersion !== undefined)
-        && Object.keys(AVAILABLE).includes(gameConf.bepinexVersion))
-    ? AVAILABLE[gameConf.bepinexVersion] : AVAILABLE[getLatestVersion()];
+        && Object.keys(AVAILABLE).includes(versionKey))
+    ? AVAILABLE[versionKey] : AVAILABLE[getLatestVersion(arch)];
   return {
     ...download,
     gameId: gameConf.gameId,
