@@ -241,14 +241,28 @@ function init(context: types.IExtensionContext) {
       if (mod?.type !== MODTYPE_BIX_INJECTOR) {
         return;
       }
-      const profileId = selectors.lastActiveProfileForGame(state, gameId);
-      const batched = [
-        actions.setModEnabled(profileId, modId, true),
-      ];
-      if (!!gameConf.bepinexVersion && !mod?.attributes?.version) {
-        batched.push(actions.setModAttribute(gameId, modId, 'version', gameConf.bepinexVersion) as any);
+      const metaDataDetails: types.ILookupDetails = {
+        gameId: 'site',
+        fileName: mod.attributes?.fileName,
+        fileMD5: mod.attributes?.fileMD5,
+        fileSize: mod.attributes?.fileSize,
       }
-      util.batchDispatch(context.api.store, batched);
+      context.api.lookupModMeta(metaDataDetails, true).then(meta => {
+        const profileId = selectors.lastActiveProfileForGame(state, gameId);
+        const batched = [
+          actions.setModEnabled(profileId, modId, true),
+        ];
+        if (meta.length > 0) {
+          batched.push(actions.setDownloadModInfo(archiveId, 'nexus.modInfo', meta[0].value) as any);
+          batched.push(actions.setModAttribute(gameId, modId, 'version', meta[0].value?.fileVersion) as any);
+          // batched.push(actions.setModAttributes(gameId, modId, meta[0].value) as any);
+        } else if (!!gameConf.bepinexVersion && !mod?.attributes?.version) {
+          batched.push(actions.setModAttribute(gameId, modId, 'version', gameConf.bepinexVersion) as any);
+        } else {
+          batched.push(actions.setModAttribute(gameId, modId, 'version', '0.0.0') as any);
+        }
+        util.batchDispatch(context.api.store, batched);
+      });
     });
     context.api.events.on('gamemode-activated', async (gameMode: string) => {
       const t = context.api.translate;

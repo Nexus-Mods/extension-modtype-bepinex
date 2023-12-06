@@ -31,7 +31,7 @@ async function install(api: types.IExtensionApi,
                        downloadId: string,
                        force?: boolean): Promise<string> {
   const state = api.getState();
-  if (downloadInfo.allowAutoInstall && state.settings.automation?.['install'] !== true) {
+  if (downloadInfo.allowAutoInstall) {
     const mods: { [modId: string]: types.IMod } =
       util.getSafe(state, ['persistent', 'mods', downloadInfo.gameId], {});
     const isInjectorInstalled = (force) ? false : Object.keys(mods).find(id =>
@@ -115,7 +115,8 @@ export async function ensureBepInExPack(api: types.IExtensionApi,
         //  changes which we don't need.
         version = version.slice(0, 6);
       }
-      if (semver.coerce(version).raw === gameConf.bepinexVersion) {
+      const modVersion = semver.coerce(version)?.raw || '0.0.0';
+      if (modVersion === gameConf.bepinexVersion) {
         prev = true;
       }
       return prev;

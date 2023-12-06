@@ -156,7 +156,7 @@ export interface INexusDownloadInfo {
   // The name of the archive including its extension (i.e. '.zip', '.7z', etc).
   archiveName: string;
 
-  // Whether we we're ok to have the download automatically install when download
+  // Whether we're ok to have the download automatically install when download
   //  completes.
   allowAutoInstall?: boolean;
 }
