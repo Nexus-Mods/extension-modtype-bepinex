@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [0.2.0] - 2023-12-04
 
+- Added version 5.4.22 to internal list
 - Added ability to control the architecture (x86/x64/unix) of the BepInEx package when downloading from Github.
 - Added ability to control the Unity Build type (mono/il2cpp)
 - Added ability to define BepInEx configuration file from extension (or just include a pre-defined BepInEx.cfg file)
