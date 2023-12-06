@@ -9,7 +9,7 @@ import { addGameSupport, getDownload, getSupportMap, MODTYPE_BIX_INJECTOR } from
 import { installInjector, installRootMod,
   testSupportedBepInExInjector, testSupportedRootMod } from './installers';
 import { IBepInExGameConfig, INexusDownloadInfo, NotPremiumError } from './types';
-import { createDirectories, toBlue } from './util';
+import { createDirectories, dismissNotifications, toBlue } from './util';
 
 function showAttrib(state: types.IState) {
   const gameMode = selectors.activeGameId(state);
@@ -255,6 +255,8 @@ function init(context: types.IExtensionContext) {
         if (meta.length > 0) {
           batched.push(actions.setDownloadModInfo(archiveId, 'nexus.modInfo', meta[0].value) as any);
           batched.push(actions.setModAttribute(gameId, modId, 'version', meta[0].value?.fileVersion) as any);
+          batched.push(actions.setModAttribute(gameId, modId, 'modId', meta[0].value.details.modId) as any);
+          batched.push(actions.setModAttribute(gameId, modId, 'fileId', meta[0].value.details.fileId) as any);
           // batched.push(actions.setModAttributes(gameId, modId, meta[0].value) as any);
         } else if (!!gameConf.bepinexVersion && !mod?.attributes?.version) {
           batched.push(actions.setModAttribute(gameId, modId, 'version', gameConf.bepinexVersion) as any);
@@ -263,6 +265,11 @@ function init(context: types.IExtensionContext) {
         }
         util.batchDispatch(context.api.store, batched);
       });
+    });
+    context.api.events.on('profile-will-change', () => {
+      const state = context.api.getState();
+      const oldProfileId = util.getSafe(state, ['settings', 'profiles', 'activeProfileId'], undefined);
+      dismissNotifications(context.api, oldProfileId);
     });
     context.api.events.on('gamemode-activated', async (gameMode: string) => {
       const t = context.api.translate;
@@ -284,16 +291,16 @@ function init(context: types.IExtensionContext) {
         bixUrl: '[url=https://github.com/BepInEx/BepInEx/releases]BepInEx Release[/url]',
       };
       const dialogContents = (gameConf.autoDownloadBepInEx)
-        ? t('The {{game}} game extension requires a widely used 3rd party assembly '
+        ? t('The "{{game}}" game extension requires a widely used 3rd party assembly '
           + 'patching/injection library called Bepis Injector Extensible (BepInEx).{{bl}}'
           + 'Vortex has downloaded and installed this library automatically for you, and is currently '
           + 'available in your mods page to enable/disable just like any other regular mod. '
-          + 'Depending on the modding pattern of {{game}}, BepInEx may be a hard requirement '
+          + 'Depending on the modding pattern of "{{game}}", BepInEx may be a hard requirement '
           + 'for mods to function in-game in which case you MUST have the library enabled and deployed '
           + 'at all times for the mods to work!{{bl}}'
           + 'To remove the library, simply disable the mod entry for BepInEx.'
           , { replace })
-        : t('The {{game}} game extension requires a widely used 3rd party assembly '
+        : t('The "{{game}}" game extension requires a widely used 3rd party assembly '
           + 'patching/injection library called Bepis Injector Extensible (BepInEx).{{bl}}'
           + 'BepInEx may be a hard requirement for some mods to function in-game in which case you should '
           + 'manually download and install the latest {{bixUrl}} in order for the mods to work!{{bl}}'
@@ -323,6 +330,11 @@ function init(context: types.IExtensionContext) {
           return (err instanceof NotPremiumError)
             ? Promise.resolve()
             : context.api.showErrorNotification('Failed to download/install BepInEx', err);
+        }).finally(() => {
+          const hasInjectorMod = Object.values(context.api.getState().persistent.mods[gameMode]).some(mod => mod?.type === MODTYPE_BIX_INJECTOR);
+          if (hasInjectorMod) {
+            dismissNotifications(context.api, selectors.lastActiveProfileForGame(context.api.getState(), gameMode));
+          }
         });
     });
 

@@ -40,3 +40,9 @@ export async function resolveBepInExConfiguration(gameId: string)
   // If we don't have a config file at this point, we will use the default one.
   return await fs.readFileAsync(path.join(__dirname, 'BepInEx.cfg'), 'utf8');
 }
+
+export function dismissNotifications(api: types.IExtensionApi, profileId: string) {
+  const profile = selectors.profileById(api.getState(), profileId)
+  api.dismissNotification('bix-update');
+  api.dismissNotification('bepis_injector' + profile.gameId);
+}
