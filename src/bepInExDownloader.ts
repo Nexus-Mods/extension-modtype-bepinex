@@ -3,7 +3,7 @@ import path from 'path';
 import semver from 'semver';
 import { actions, fs, log, selectors, types, util } from 'vortex-api';
 
-import { getDownload, getSupportMap, NEXUS } from './common';
+import { getDownload, getSupportMap, NEXUS, MODTYPE_BIX_INJECTOR } from './common';
 import { IBepInExGameConfig, INexusDownloadInfo, NotPremiumError } from './types';
 
 import { checkForUpdates, downloadFromGithub } from './githubDownloader';
@@ -35,7 +35,7 @@ async function install(api: types.IExtensionApi,
     const mods: { [modId: string]: types.IMod } =
       util.getSafe(state, ['persistent', 'mods', downloadInfo.gameId], {});
     const isInjectorInstalled = (force) ? false : Object.keys(mods).find(id =>
-      mods[id].type === 'bepinex-injector') !== undefined;
+      mods[id].type === MODTYPE_BIX_INJECTOR) !== undefined;
     if (!isInjectorInstalled) {
       return new Promise<string>((resolve, reject) => {
         api.events.emit('start-install-download', downloadId, true, (err, modId) => {

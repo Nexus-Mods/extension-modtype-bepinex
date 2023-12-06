@@ -48,6 +48,13 @@ export interface IGithubRelease {
 
 export type BepInExArchitecture = 'x86' | 'x64' | 'unix';
 export type BepInExUnityBuild = 'unitymono' | 'unityil2cpp';
+export interface IBIXPackageResolver {
+  rgx: RegExp;
+  version: string; // Semver
+  architecture: BepInExArchitecture;
+  unityBuild?: BepInExUnityBuild;
+}
+
 export interface IBepInExGameConfig {
   // Nexus Mods GameId.
   gameId: string;
@@ -133,6 +140,9 @@ export interface INexusDownloadInfo {
   // The game we're downloading the file for - used to install the BepInEx package
   //  as soon as we finish downloading it (when auto installation is enabled)
   gameId?: string;
+
+  // The mod's version, this can usually be "guessed" using the file's name.
+  version?: string;
 
   // The numerical id of the mod.
   modId: string;

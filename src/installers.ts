@@ -1,7 +1,7 @@
 /* eslint-disable */
 import path from 'path';
 import Parser, { IniFile, WinapiFormat } from 'vortex-parse-ini';
-import { BEPINEX_CONFIG_REL_PATH, DOORSTOPPER_CONFIG, DOORSTOPPER_HOOK, getSupportMap, INJECTOR_FILES } from './common';
+import { BEPINEX_CONFIG_REL_PATH, DOORSTOPPER_CONFIG, DOORSTOPPER_HOOK, getSupportMap, INJECTOR_FILES, MODTYPE_BIX_INJECTOR } from './common';
 import { IBepInExGameConfig, IDoorstopConfig, UnityDoorstopType } from './types';
 import { resolveBepInExConfiguration } from './util';
 
@@ -61,7 +61,7 @@ export async function installInjector(files: string[],
     ? doorStopConfig.doorstopType : 'default';
   const modTypeInstruction: types.IInstruction = {
     type: 'setmodtype',
-    value: 'bepinex-injector',
+    value: MODTYPE_BIX_INJECTOR,
   };
   const attribInstr: types.IInstruction = {
     type: 'attribute',

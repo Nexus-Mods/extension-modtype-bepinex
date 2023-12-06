@@ -9,8 +9,8 @@ import { IBepInExGameConfig, IGithubRelease } from './types';
 import { raiseConsentDialog } from './bepInExDownloader';
 
 import { IncomingHttpHeaders, IncomingMessage } from 'http';
-import { actions, log, selectors, types, util } from 'vortex-api';
-import { generateRegExp } from './common';
+import { log, types, util } from 'vortex-api';
+import { resolveBixPackage } from './common';
 
 const GITHUB_URL = 'https://api.github.com/repos/BepInEx/BepInEx';
 const BIX_LANDING = 'https://github.com/BepInEx/BepInEx';
@@ -139,7 +139,6 @@ export async function getLatestReleases(currentVersion: string): Promise<IGithub
 
 async function startDownload(api: types.IExtensionApi,
                              gameConf: IBepInExGameConfig,
-                             downloadVer: string,
                              downloadLink: string) {
   const { gameId } = gameConf;
   // tslint:disable-next-line: no-shadowed-variable - why is this even required ?
@@ -161,50 +160,35 @@ async function startDownload(api: types.IExtensionApi,
           && (error.downloadId !== undefined)) {
           id = error.downloadId;
         } else {
-          api.showErrorNotification('Download failed',
-            error, { allowReport: false });
+          api.showErrorNotification('Download failed', error, { allowReport: false });
           return Promise.resolve();
         }
       }
+      if (api.getState().settings.automation?.['install'] === true) {
+        return Promise.resolve();
+      }
       api.events.emit('start-install-download', id, true, (err, modId) => {
         if (err !== null) {
-          api.showErrorNotification('Failed to install BepInEx',
-            err, { allowReport: false });
+          api.showErrorNotification('Failed to install BepInEx', err, { allowReport: false });
         }
-
-        const state = api.getState();
-        const profileId = selectors.lastActiveProfileForGame(state, gameId);
-        const batched = [
-          actions.setModEnabled(profileId, modId, true),
-          actions.setModAttribute(gameId, modId, 'source', 'other'),
-          actions.setModAttribute(gameId, modId, 'url', redirectionURL),
-          actions.setModAttribute(gameId, modId, 'version', downloadVer),
-        ];
-        util.batchDispatch(api.store, batched);
         return Promise.resolve();
       });
     }, 'ask');
 }
 
 async function resolveDownloadLink(gameConf: IBepInExGameConfig, currentReleases: any[]) {
-  const rgx = generateRegExp(gameConf);
+  const { rgx, version } = resolveBixPackage(gameConf);
   let assetLink: string | undefined;
-  const matchingRelease = currentReleases.find((release, idx) => {
-    if (gameConf.bepinexVersion === undefined && idx === 0) {
-      return true;
-    } else if (gameConf.bepinexVersion !== undefined) {
-      const tagVer = release.tag_name.slice(1);
-      if (semver.coerce(tagVer).raw !== gameConf.bepinexVersion) {
-        return false;
-      } else {
-        const matches = release.assets.filter(asset => rgx.test(asset.name));
-        if (matches.length > 0) {
-          assetLink = matches[0].browser_download_url;
-          return true;
-        }
-      }
-    } else {
+  const matchingRelease = currentReleases.find((release) => {
+    const tagVer = release.tag_name.slice(1);
+    if (semver.coerce(tagVer).raw !== version) {
       return false;
+    } else {
+      const matches = release.assets.filter(asset => rgx.test(asset.name));
+      if (matches.length > 0) {
+        assetLink = matches[0].browser_download_url;
+        return true;
+      }
     }
   });
   if (matchingRelease === undefined) {
@@ -233,7 +217,7 @@ export async function checkForUpdates(api: types.IExtensionApi,
       } else {
         if (semver.gt(version, currentVersion)) {
           return notifyUpdate(api, version, currentVersion)
-            .then(() => startDownload(api, gameConf, version, downloadLink))
+            .then(() => startDownload(api, gameConf, downloadLink))
             .then(() => Promise.resolve(version));
         } else {
           return Promise.resolve(currentVersion);
@@ -255,7 +239,7 @@ export async function downloadFromGithub(api: types.IExtensionApi,
     .then(async currentReleases => {
       const { version, downloadLink } = await resolveDownloadLink(gameConf, currentReleases);
       return downloadConsent(api, gameConf)
-        .then(() => startDownload(api, gameConf, version, downloadLink));
+        .then(() => startDownload(api, gameConf, downloadLink));
     })
     .catch(err => {
       if (err instanceof util.UserCanceled || err instanceof util.ProcessCanceled) {

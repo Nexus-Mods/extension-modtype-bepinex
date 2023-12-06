@@ -1,8 +1,8 @@
 import path from 'path';
-import { IAvailableDownloads, IBepInExGameConfig, INexusDownloadInfoExt } from './types';
+import { IBIXPackageResolver, IAvailableDownloads,
+  IBepInExGameConfig, INexusDownloadInfoExt } from './types';
 
 import semver from 'semver';
-
 export const NEXUS = 'www.nexusmods.com';
 export const DOORSTOPPER_HOOK = 'winhttp.dll';
 export const DOORSTOPPER_CONFIG = 'doorstop_config.ini';
@@ -18,17 +18,29 @@ export const INJECTOR_FILES: string[] = [
   'MonoMod.RuntimeDetour.xml', 'MonoMod.Utils.dll', 'MonoMod.Utils.xml',
 ];
 
+export const MODTYPE_BIX_INJECTOR = 'bepinex-injector'
+
+const DEFAULT_VERSION = '5.4.22';
+const NEW_FILE_FORMAT_VERSION = '6.0.0';
 const GAME_SUPPORT: { [gameId: string]: IBepInExGameConfig } = {};
 export const getSupportMap = () => GAME_SUPPORT;
-export const generateRegExp = (gameConf: IBepInExGameConfig): RegExp => {
+export const resolveBixPackage = (gameConf: IBepInExGameConfig): IBIXPackageResolver => {
   // Depending on the game config's github parameters this will generate a regexp
   //  that will match the download link for the BepInEx package.
   const { architecture, bepinexVersion, unityBuild } = gameConf;
   const arch = architecture !== undefined ? architecture : 'x64';
-  const version = bepinexVersion !== undefined ? bepinexVersion : '.*';
-  const unity = unityBuild !== undefined ? `${unityBuild}_` : '';
+  const version = bepinexVersion !== undefined ? bepinexVersion : DEFAULT_VERSION;
+  const unity = (unityBuild !== undefined)
+    ? `${unityBuild}_`
+    : semver.gte(version, NEW_FILE_FORMAT_VERSION)
+      ? 'unitymono_' : '';
   const regex = `BepInEx_${unity}${arch}_${version}.*[.zip|.7z]`;
-  return new RegExp(regex, 'i');
+  return {
+    rgx: new RegExp(regex, 'i'),
+    version,
+    architecture: arch,
+    unityBuild,
+  };
 }
 
 export const addGameSupport = (gameConf: IBepInExGameConfig) => {

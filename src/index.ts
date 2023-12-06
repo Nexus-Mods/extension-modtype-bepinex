@@ -5,7 +5,7 @@ import { actions, log, selectors, types, util } from 'vortex-api';
 import AttribDashlet from './AttribDashlet';
 
 import { ensureBepInExPack } from './bepInExDownloader';
-import { addGameSupport, getDownload, getSupportMap } from './common';
+import { addGameSupport, getDownload, getSupportMap, MODTYPE_BIX_INJECTOR } from './common';
 import { installInjector, installRootMod,
   testSupportedBepInExInjector, testSupportedRootMod } from './installers';
 import { IBepInExGameConfig, INexusDownloadInfo, NotPremiumError } from './types';
@@ -38,7 +38,7 @@ async function onCheckModVersion(api: types.IExtensionApi,
   if (profile === undefined) {
     return;
   }
-  const injectorModIds = Object.keys(mods).filter(id => mods[id]?.type === 'bepinex-injector');
+  const injectorModIds = Object.keys(mods).filter(id => mods[id]?.type === MODTYPE_BIX_INJECTOR);
   const enabledId = injectorModIds.find(id => util.getSafe(profile,
     ['modState', id, 'enabled'], false));
 
@@ -171,7 +171,7 @@ function init(context: types.IExtensionContext) {
   }, { minArguments: 1 });
 
   // This modType is assigned by the BepInEx injector installer.
-  context.registerModType('bepinex-injector', 10, isSupported, getPath, modTypeTest, {
+  context.registerModType(MODTYPE_BIX_INJECTOR, 10, isSupported, getPath, modTypeTest, {
     mergeMods: true,
     name: 'Bepis Injector Extensible',
   });
@@ -231,6 +231,19 @@ function init(context: types.IExtensionContext) {
     }));
 
   context.once(() => {
+    context.api.events.on('did-install-mod', async (gameId, archiveId, modId) => {
+      const gameConf = getSupportMap()[gameId];
+      if (gameConf === undefined) {
+        return;
+      }
+      const state = context.api.getState();
+      const mod: types.IMod = util.getSafe(state, ['persistent', 'mods', gameId, modId], undefined);
+      if (mod?.type !== MODTYPE_BIX_INJECTOR) {
+        return;
+      }
+      const profileId = selectors.lastActiveProfileForGame(state, gameId);
+      context.api.store.dispatch(actions.setModEnabled(profileId, modId, true));
+    });
     context.api.events.on('gamemode-activated', async (gameMode: string) => {
       const t = context.api.translate;
       if (!isSupported(gameMode)) {
