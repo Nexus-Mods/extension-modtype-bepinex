@@ -105,11 +105,17 @@ export async function ensureBepInExPack(api: types.IExtensionApi,
 
   const mods: { [modId: string]: types.IMod } =
     util.getSafe(state, ['persistent', 'mods', gameId], {});
-  const injectorModIds = Object.keys(mods).filter(id => mods[id]?.type === 'bepinex-injector');
+  const injectorModIds = Object.keys(mods).filter(id => mods[id]?.type === MODTYPE_BIX_INJECTOR);
   if (gameConf.bepinexVersion !== undefined && gameConf.forceGithubDownload !== true) {
-    const dl = getDownload(gameConf);
     const hasRequiredVersion = injectorModIds.reduce((prev, iter) => {
-      if (mods[iter]?.attributes?.fileId === +dl.fileId) {
+      let version: string = mods[iter]?.attributes?.version ?? '0.0.0';
+      if (version.length > 6) {
+        // Ugly hack but people are pointlessly adding 0s to the end of the version.
+        //  AFAICT the only reason they do this is for the sake of configuration
+        //  changes which we don't need.
+        version = version.slice(0, 6);
+      }
+      if (semver.coerce(version).raw === gameConf.bepinexVersion) {
         prev = true;
       }
       return prev;
@@ -135,7 +141,7 @@ export async function ensureBepInExPack(api: types.IExtensionApi,
   }
 
   const isInjectorInstalled = (!force)
-    ? Object.keys(mods).find(id => mods[id].type === 'bepinex-injector') !== undefined
+    ? Object.keys(mods).find(id => mods[id].type === MODTYPE_BIX_INJECTOR) !== undefined
     : false;
 
   if (isInjectorInstalled) {
@@ -156,7 +162,6 @@ export async function ensureBepInExPack(api: types.IExtensionApi,
         const downloadsPath = selectors.downloadPathForGame(state, gameId);
         await fs.copyAsync(downloadRes, path.join(downloadsPath, path.basename(downloadRes)));
       } else {
-        // tha f*ck is dis?
         log('error', 'failed to download custom pack', { downloadRes });
         return;
       }
@@ -175,6 +180,10 @@ export async function ensureBepInExPack(api: types.IExtensionApi,
   } else if (gameConf.forceGithubDownload !== true) {
     const defaultDownload = getDownload(gameConf);
     try {
+      if (!!gameConf.bepinexVersion && gameConf.bepinexVersion !== defaultDownload.version) {
+        // Go to Github instead!
+        throw new util.ProcessCanceled('BepInEx version mismatch');
+      }
       await download(api, defaultDownload, force);
     } catch (err) {
       await downloadFromGithub(api, gameConf);

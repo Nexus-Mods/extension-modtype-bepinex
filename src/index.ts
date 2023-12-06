@@ -242,7 +242,13 @@ function init(context: types.IExtensionContext) {
         return;
       }
       const profileId = selectors.lastActiveProfileForGame(state, gameId);
-      context.api.store.dispatch(actions.setModEnabled(profileId, modId, true));
+      const batched = [
+        actions.setModEnabled(profileId, modId, true),
+      ];
+      if (!!gameConf.bepinexVersion && !mod?.attributes?.version) {
+        batched.push(actions.setModAttribute(gameId, modId, 'version', gameConf.bepinexVersion) as any);
+      }
+      util.batchDispatch(context.api.store, batched);
     });
     context.api.events.on('gamemode-activated', async (gameMode: string) => {
       const t = context.api.translate;

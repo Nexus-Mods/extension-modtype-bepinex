@@ -59,6 +59,7 @@ export const addGameSupport = (gameConf: IBepInExGameConfig) => {
 const AVAILABLE: IAvailableDownloads = {
   '5.4.10': {
     domainId: 'site',
+    version: '5.4.10',
     modId: '115',
     fileId: '1023',
     archiveName: 'BepInEx_x64_5.4.10.0.zip',
@@ -67,6 +68,7 @@ const AVAILABLE: IAvailableDownloads = {
   },
   '5.4.13': {
     domainId: 'site',
+    version: '5.4.13',
     modId: '115',
     fileId: '1137',
     archiveName: 'BepInEx_x64_5.4.13.0.zip',
@@ -75,6 +77,7 @@ const AVAILABLE: IAvailableDownloads = {
   },
   '5.4.15': {
     domainId: 'site',
+    version: '5.4.15',
     modId: '115',
     fileId: '1175',
     archiveName: 'BepInEx_x64_5.4.15.0.zip',
@@ -83,6 +86,7 @@ const AVAILABLE: IAvailableDownloads = {
   },
   '5.4.17': {
     domainId: 'site',
+    version: '5.4.17',
     modId: '115',
     fileId: '1273',
     archiveName: 'BepInEx_x64_5.4.17.0.zip',
