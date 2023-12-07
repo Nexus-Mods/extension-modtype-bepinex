@@ -269,7 +269,11 @@ function init(context: types.IExtensionContext) {
     context.api.events.on('profile-will-change', () => {
       const state = context.api.getState();
       const oldProfileId = util.getSafe(state, ['settings', 'profiles', 'activeProfileId'], undefined);
-      dismissNotifications(context.api, oldProfileId);
+      const profile = selectors.profileById(state, oldProfileId);
+      const gameConf = getSupportMap()[profile?.gameId];
+      if (!!gameConf) {
+        dismissNotifications(context.api, oldProfileId);
+      }
     });
     context.api.events.on('gamemode-activated', async (gameMode: string) => {
       const t = context.api.translate;
