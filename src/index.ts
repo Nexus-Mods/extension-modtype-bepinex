@@ -1,14 +1,15 @@
+/* eslint-disable */
 import * as path from 'path';
 import { actions, log, selectors, types, util } from 'vortex-api';
 
 import AttribDashlet from './AttribDashlet';
 
 import { ensureBepInExPack } from './bepInExDownloader';
-import { addGameSupport, getDownload, getSupportMap } from './common';
+import { addGameSupport, getDownload, getSupportMap, MODTYPE_BIX_INJECTOR } from './common';
 import { installInjector, installRootMod,
   testSupportedBepInExInjector, testSupportedRootMod } from './installers';
 import { IBepInExGameConfig, INexusDownloadInfo, NotPremiumError } from './types';
-import { createDirectories, toBlue } from './util';
+import { createDirectories, dismissNotifications, toBlue } from './util';
 
 function showAttrib(state: types.IState) {
   const gameMode = selectors.activeGameId(state);
@@ -37,7 +38,7 @@ async function onCheckModVersion(api: types.IExtensionApi,
   if (profile === undefined) {
     return;
   }
-  const injectorModIds = Object.keys(mods).filter(id => mods[id]?.type === 'bepinex-injector');
+  const injectorModIds = Object.keys(mods).filter(id => mods[id]?.type === MODTYPE_BIX_INJECTOR);
   const enabledId = injectorModIds.find(id => util.getSafe(profile,
     ['modState', id, 'enabled'], false));
 
@@ -65,9 +66,11 @@ async function onCheckModVersion(api: types.IExtensionApi,
         util.getSafe(state, ['persistent', 'mods', gameId], undefined);
       const newInjector = Object.keys(newMods)
         .find(id => newMods[id].attributes?.fileId === dwnl.fileId);
-
-      api.store.dispatch(actions.setModEnabled(profile.id, enabledId, false));
-      api.store.dispatch(actions.setModEnabled(profile.id, newInjector, true));
+      const batched = [
+        actions.setModEnabled(profile.id, enabledId, false),
+        actions.setModEnabled(profile.id, newInjector, true)
+      ];
+      util.batchDispatch(api.store, batched);
     })
     .catch(err => {
       return (err instanceof NotPremiumError)
@@ -168,41 +171,46 @@ function init(context: types.IExtensionContext) {
   }, { minArguments: 1 });
 
   // This modType is assigned by the BepInEx injector installer.
-  context.registerModType('bepinex-injector', 10, isSupported, getPath, modTypeTest, {
+  context.registerModType(MODTYPE_BIX_INJECTOR, 10, isSupported, getPath, modTypeTest, {
     mergeMods: true,
     name: 'Bepis Injector Extensible',
   });
 
+  // There's currently no reliable way to differentiate BepInEx plugins from patchers,
+  //  apart from the mod's description specifying where to deploy the mod. Unlike regular
+  //  plugins, patchers should only be used in special cases, which is why
+  //  we don't want this to be assigned by default.
+  context.registerModType('bepinex-patcher', 11, isSupported,
+    (game: types.IGame) => path.join(getPath(game), 'BepInEx', 'patchers'),
+    modTypeTest, {
+    mergeMods: true,
+    name: 'BepInEx (patchers)',
+  });
+
   // Assigned to any mod that contains the plugins, patchers, config directories
-  context.registerModType('bepinex-root', 50, isSupported,
+  context.registerModType('bepinex-root', 12, isSupported,
   (game: types.IGame) => path.join(getPath(game), 'BepInEx'), toBlue(rootModTypeTest), {
     mergeMods: true,
     name: 'BepInEx (root)',
   });
 
-  context.registerModType('bepinex-plugin', 60, isSupported,
+  context.registerModType('bepinex-plugin', 13, isSupported,
     (game: types.IGame) => path.join(getPath(game), 'BepInEx', 'plugins'),
     toBlue(pluginModTypeTest), {
     mergeMods: true,
     name: 'BepInEx (plugins)',
   });
 
-  // There's currently no reliable way to differentiate BepInEx plugins from patchers,
-  //  apart from the mod's description specifying where to deploy the mod. Unlike regular
-  //  plugins, patchers should only be used only in special cases, which is why
-  //  we don't want this to be assigned by default.
-  context.registerModType('bepinex-patcher', 25, isSupported,
-    (game: types.IGame) => path.join(getPath(game), 'BepInEx', 'patchers'),
-    toBlue(() => Promise.resolve(false)), {
-    mergeMods: true,
-    name: 'BepInEx (patchers)',
-  });
-
-  context.registerInstaller('bepis-injector-extensible', 50,
+  // Most of our extension development tutorials suggest that extension authors
+  //  should use priority 25 for their installers. Given that this is an API
+  //  functionality, we should ensure that our installers are run before any
+  //  extension installers.
+  //  TODO: Make sure this is documented in the API docs.
+  context.registerInstaller('bepis-injector-extensible', 10,
     toBlue(testSupportedBepInExInjector),
     toBlue(installInjector));
 
-  context.registerInstaller('bepinex-root', 50,
+  context.registerInstaller('bepinex-root', 10,
     toBlue(testSupportedRootMod),
     toBlue(installRootMod));
 
@@ -223,6 +231,46 @@ function init(context: types.IExtensionContext) {
     }));
 
   context.once(() => {
+    context.api.events.on('did-install-mod', async (gameId, archiveId, modId) => {
+      const gameConf = getSupportMap()[gameId];
+      if (gameConf === undefined) {
+        return;
+      }
+      const state = context.api.getState();
+      const mod: types.IMod = util.getSafe(state, ['persistent', 'mods', gameId, modId], undefined);
+      if (mod?.type !== MODTYPE_BIX_INJECTOR) {
+        return;
+      }
+      const metaDataDetails: types.ILookupDetails = {
+        gameId: 'site',
+        fileName: mod.attributes?.fileName,
+        fileMD5: mod.attributes?.fileMD5,
+        fileSize: mod.attributes?.fileSize,
+      }
+      context.api.lookupModMeta(metaDataDetails, true).then(meta => {
+        const profileId = selectors.lastActiveProfileForGame(state, gameId);
+        const batched = [
+          actions.setModEnabled(profileId, modId, true),
+        ];
+        if (meta.length > 0) {
+          batched.push(actions.setDownloadModInfo(archiveId, 'nexus.modInfo', meta[0].value) as any);
+          batched.push(actions.setModAttribute(gameId, modId, 'version', meta[0].value?.fileVersion) as any);
+          batched.push(actions.setModAttribute(gameId, modId, 'modId', meta[0].value.details.modId) as any);
+          batched.push(actions.setModAttribute(gameId, modId, 'fileId', meta[0].value.details.fileId) as any);
+          // batched.push(actions.setModAttributes(gameId, modId, meta[0].value) as any);
+        } else if (!!gameConf.bepinexVersion && !mod?.attributes?.version) {
+          batched.push(actions.setModAttribute(gameId, modId, 'version', gameConf.bepinexVersion) as any);
+        } else {
+          batched.push(actions.setModAttribute(gameId, modId, 'version', '0.0.0') as any);
+        }
+        util.batchDispatch(context.api.store, batched);
+      });
+    });
+    context.api.events.on('profile-will-change', () => {
+      const state = context.api.getState();
+      const oldProfileId = util.getSafe(state, ['settings', 'profiles', 'activeProfileId'], undefined);
+      dismissNotifications(context.api, oldProfileId);
+    });
     context.api.events.on('gamemode-activated', async (gameMode: string) => {
       const t = context.api.translate;
       if (!isSupported(gameMode)) {
@@ -238,21 +286,21 @@ function init(context: types.IExtensionContext) {
         return;
       }
       const replace = {
-        game: gameMode,
+        game: util.getGame(gameMode)?.name || gameMode,
         bl: '[br][/br][br][/br]',
         bixUrl: '[url=https://github.com/BepInEx/BepInEx/releases]BepInEx Release[/url]',
       };
       const dialogContents = (gameConf.autoDownloadBepInEx)
-        ? t('The {{game}} game extension requires a widely used 3rd party assembly '
+        ? t('The "{{game}}" game extension requires a widely used 3rd party assembly '
           + 'patching/injection library called Bepis Injector Extensible (BepInEx).{{bl}}'
           + 'Vortex has downloaded and installed this library automatically for you, and is currently '
           + 'available in your mods page to enable/disable just like any other regular mod. '
-          + 'Depending on the modding pattern of {{game}}, BepInEx may be a hard requirement '
+          + 'Depending on the modding pattern of "{{game}}", BepInEx may be a hard requirement '
           + 'for mods to function in-game in which case you MUST have the library enabled and deployed '
           + 'at all times for the mods to work!{{bl}}'
           + 'To remove the library, simply disable the mod entry for BepInEx.'
           , { replace })
-        : t('The {{game}} game extension requires a widely used 3rd party assembly '
+        : t('The "{{game}}" game extension requires a widely used 3rd party assembly '
           + 'patching/injection library called Bepis Injector Extensible (BepInEx).{{bl}}'
           + 'BepInEx may be a hard requirement for some mods to function in-game in which case you should '
           + 'manually download and install the latest {{bixUrl}} in order for the mods to work!{{bl}}'
@@ -282,6 +330,11 @@ function init(context: types.IExtensionContext) {
           return (err instanceof NotPremiumError)
             ? Promise.resolve()
             : context.api.showErrorNotification('Failed to download/install BepInEx', err);
+        }).finally(() => {
+          const hasInjectorMod = Object.values(context.api.getState().persistent.mods[gameMode]).some(mod => mod?.type === MODTYPE_BIX_INJECTOR);
+          if (hasInjectorMod) {
+            dismissNotifications(context.api, selectors.lastActiveProfileForGame(context.api.getState(), gameMode));
+          }
         });
     });
 

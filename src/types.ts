@@ -36,7 +36,25 @@ export interface IDoorstopConfig {
   validateDoorStopConfig?: (doorStopAssemblyPath: string) => Promise<types.ITestResult>;
 }
 
-export type BepInExGithubVersion = 'any' | string;
+export interface IGithubAsset {
+  name: string;
+  browser_download_url: string;
+}
+
+export interface IGithubRelease {
+  tag_name: string;
+  assets: IGithubAsset[];
+}
+
+export type BepInExArchitecture = 'x86' | 'x64' | 'unix';
+export type BepInExUnityBuild = 'unitymono' | 'unityil2cpp';
+export interface IBIXPackageResolver {
+  rgx: RegExp;
+  version: string; // Semver
+  architecture: BepInExArchitecture;
+  unityBuild?: BepInExUnityBuild;
+}
+
 export interface IBepInExGameConfig {
   // Nexus Mods GameId.
   gameId: string;
@@ -52,6 +70,14 @@ export interface IBepInExGameConfig {
   //  on Github.
   forceGithubDownload?: boolean;
 
+  // The architecture of the game we're modding.
+  architecture?: BepInExArchitecture;
+
+  // The unity build of the BepInEx package (mono or il2cpp).
+  //  Please note that using il2cpp will force this extension to resolve
+  //  to 6.0.0 =< versions.
+  unityBuild?: BepInExUnityBuild;
+
   // The required BepInEx version to use with this game
   //  (USE SEMANTIC VERSIONING i.e. '5.4.10'). This should only be
   //  used if/when the latest available version does not function correctly
@@ -66,6 +92,17 @@ export interface IBepInExGameConfig {
   //  functor (optional property - see below) to download and have Vortex install it
   //  as a mod.
   bepinexVersion?: string;
+
+  // The game extension can have its own BepInEx configuration object defined
+  //  this will be used to generate the BepInEx configuration file when installing
+  //  the package. See the documentation for available parameters
+  //  https://docs.bepinex.dev/articles/user_guide/configuration.html
+  //
+  // IMPORTANT - ".cfg" files use the TOML format, please ensure that the object
+  //  you provide is valid TOML.
+  // ALTERNATIVELY - You can provide a BepInEx.cfg file alongside your extension
+  //  and it will be used instead of the object. (The object has priority though!)
+  bepinexConfigObject?: any;
 
   // Relative path to the game's root directory where
   //  the game extension requires the BepInEx folder to be
@@ -104,6 +141,12 @@ export interface INexusDownloadInfo {
   //  as soon as we finish downloading it (when auto installation is enabled)
   gameId?: string;
 
+  // The mod's version, this can usually be "guessed" using the file's name.
+  version: string;
+
+  // x86 or x64
+  architecture: BepInExArchitecture;
+
   // The numerical id of the mod.
   modId: string;
 
@@ -113,7 +156,7 @@ export interface INexusDownloadInfo {
   // The name of the archive including its extension (i.e. '.zip', '.7z', etc).
   archiveName: string;
 
-  // Whether we we're ok to have the download automatically install when download
+  // Whether we're ok to have the download automatically install when download
   //  completes.
   allowAutoInstall?: boolean;
 }

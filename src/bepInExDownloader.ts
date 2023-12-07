@@ -1,11 +1,12 @@
+/* eslint-disable max-lines-per-function */
 import path from 'path';
 import semver from 'semver';
 import { actions, fs, log, selectors, types, util } from 'vortex-api';
 
-import { getDownload, getSupportMap, NEXUS } from './common';
-import { IBepInExGameConfig, INexusDownloadInfo, INexusDownloadInfoExt, NotPremiumError } from './types';
+import { getDownload, getSupportMap, NEXUS, MODTYPE_BIX_INJECTOR } from './common';
+import { IBepInExGameConfig, INexusDownloadInfo, NotPremiumError } from './types';
 
-import { checkForUpdates, downloadBix } from './githubDownloader';
+import { checkForUpdates, downloadFromGithub } from './githubDownloader';
 
 function genDownloadProps(api: types.IExtensionApi, archiveName: string) {
   const state = api.getState();
@@ -28,13 +29,13 @@ function updateSupportedGames(api: types.IExtensionApi, downloadInfo: INexusDown
 async function install(api: types.IExtensionApi,
                        downloadInfo: INexusDownloadInfo,
                        downloadId: string,
-                       force?: boolean) {
+                       force?: boolean): Promise<string> {
   const state = api.getState();
-  if (downloadInfo.allowAutoInstall && state.settings.automation?.['install'] !== true) {
+  if (downloadInfo.allowAutoInstall) {
     const mods: { [modId: string]: types.IMod } =
       util.getSafe(state, ['persistent', 'mods', downloadInfo.gameId], {});
     const isInjectorInstalled = (force) ? false : Object.keys(mods).find(id =>
-      mods[id].type === 'bepinex-injector') !== undefined;
+      mods[id].type === MODTYPE_BIX_INJECTOR) !== undefined;
     if (!isInjectorInstalled) {
       return new Promise<string>((resolve, reject) => {
         api.events.emit('start-install-download', downloadId, true, (err, modId) => {
@@ -42,7 +43,7 @@ async function install(api: types.IExtensionApi,
         });
       });
     } else {
-      return Promise.resolve();
+      return Promise.resolve(undefined);
     }
   }
 }
@@ -104,11 +105,18 @@ export async function ensureBepInExPack(api: types.IExtensionApi,
 
   const mods: { [modId: string]: types.IMod } =
     util.getSafe(state, ['persistent', 'mods', gameId], {});
-  const injectorModIds = Object.keys(mods).filter(id => mods[id]?.type === 'bepinex-injector');
+  const injectorModIds = Object.keys(mods).filter(id => mods[id]?.type === MODTYPE_BIX_INJECTOR);
   if (gameConf.bepinexVersion !== undefined && gameConf.forceGithubDownload !== true) {
-    const dl = getDownload(gameConf);
     const hasRequiredVersion = injectorModIds.reduce((prev, iter) => {
-      if (mods[iter]?.attributes?.fileId === +dl.fileId) {
+      let version: string = mods[iter]?.attributes?.version ?? '0.0.0';
+      if (version.length > 6) {
+        // Ugly hack but people are pointlessly adding 0s to the end of the version.
+        //  AFAICT the only reason they do this is for the sake of configuration
+        //  changes which we don't need.
+        version = version.slice(0, 6);
+      }
+      const modVersion = semver.coerce(version)?.raw || '0.0.0';
+      if (modVersion === gameConf.bepinexVersion) {
         prev = true;
       }
       return prev;
@@ -134,7 +142,7 @@ export async function ensureBepInExPack(api: types.IExtensionApi,
   }
 
   const isInjectorInstalled = (!force)
-    ? Object.keys(mods).find(id => mods[id].type === 'bepinex-injector') !== undefined
+    ? Object.keys(mods).find(id => mods[id].type === MODTYPE_BIX_INJECTOR) !== undefined
     : false;
 
   if (isInjectorInstalled) {
@@ -155,7 +163,6 @@ export async function ensureBepInExPack(api: types.IExtensionApi,
         const downloadsPath = selectors.downloadPathForGame(state, gameId);
         await fs.copyAsync(downloadRes, path.join(downloadsPath, path.basename(downloadRes)));
       } else {
-        // tha f*ck is dis?
         log('error', 'failed to download custom pack', { downloadRes });
         return;
       }
@@ -174,20 +181,17 @@ export async function ensureBepInExPack(api: types.IExtensionApi,
   } else if (gameConf.forceGithubDownload !== true) {
     const defaultDownload = getDownload(gameConf);
     try {
+      if (!!gameConf.bepinexVersion && gameConf.bepinexVersion !== defaultDownload.version) {
+        // Go to Github instead!
+        throw new util.ProcessCanceled('BepInEx version mismatch');
+      }
       await download(api, defaultDownload, force);
     } catch (err) {
-      if (err instanceof NotPremiumError) {
-        const res = await raiseConsentDialog(api, gameConf);
-        if (res.action === 'Download BepInEx') {
-          return downloadFromGithub(api, defaultDownload);
-        }
-      }
-      log('error', 'failed to download default pack', err);
-      return Promise.reject(err);
+      await downloadFromGithub(api, gameConf);
     }
   } else {
     try {
-      await downloadBix(api, gameConf);
+      await downloadFromGithub(api, gameConf);
     } catch (err) {
       return Promise.reject(err);
     }
@@ -219,43 +223,43 @@ export async function raiseConsentDialog(api: types.IExtensionApi, gameConf: IBe
   ]);
 }
 
-async function downloadFromGithub(api: types.IExtensionApi, dlInfo: INexusDownloadInfoExt) {
-  const t = api.translate;
-  const replace = {
-    archiveName: dlInfo.archiveName,
-  };
-  const instructions = t('Once you allow Vortex to browse to GitHub - '
-    + 'Please scroll down and click on "{{archiveName}}"', { replace });
-  return new Promise((resolve, reject) => {
-    api.emitAndAwait('browse-for-download', dlInfo.githubUrl, instructions)
-      .then((result: string[]) => {
-        if (!result || !result.length) {
-          // If the user clicks outside the window without downloading.
-          return reject(new util.UserCanceled());
-        }
-        if (!result[0].includes(dlInfo.archiveName)) {
-          return reject(new util.ProcessCanceled('Selected wrong download'));
-        }
-        api.events.emit('start-download', [result[0]], {}, undefined,
-          (error, id) => {
-            if (error !== null) {
-              return reject(error);
-            }
-            api.events.emit('start-install-download', id, true, (err, modId) => {
-              if (err) {
-                // Error notification gets reported by the event listener
-                log('error', 'Error installing download', err);
-              }
-              return resolve(undefined);
-            });
-          }, 'never');
-      });
-  })
-  .catch(err => {
-    if (err instanceof util.UserCanceled) {
-      return Promise.resolve();
-    } else {
-      return downloadFromGithub(api, dlInfo);
-    }
-  });
-}
+// async function downloadFromGithub(api: types.IExtensionApi, dlInfo: INexusDownloadInfoExt) {
+//   const t = api.translate;
+//   const replace = {
+//     archiveName: dlInfo.archiveName,
+//   };
+//   const instructions = t('Once you allow Vortex to browse to GitHub - '
+//     + 'Please scroll down and click on "{{archiveName}}"', { replace });
+//   return new Promise((resolve, reject) => {
+//     api.emitAndAwait('browse-for-download', dlInfo.githubUrl, instructions)
+//       .then((result: string[]) => {
+//         if (!result || !result.length) {
+//           // If the user clicks outside the window without downloading.
+//           return reject(new util.UserCanceled());
+//         }
+//         if (!result[0].includes(dlInfo.archiveName)) {
+//           return reject(new util.ProcessCanceled('Selected wrong download'));
+//         }
+//         api.events.emit('start-download', [result[0]], {}, undefined,
+//           (error, id) => {
+//             if (error !== null) {
+//               return reject(error);
+//             }
+//             api.events.emit('start-install-download', id, true, (err, modId) => {
+//               if (err) {
+//                 // Error notification gets reported by the event listener
+//                 log('error', 'Error installing download', err);
+//               }
+//               return resolve(undefined);
+//             });
+//           }, 'never');
+//       });
+//   })
+//   .catch(err => {
+//     if (err instanceof util.UserCanceled) {
+//       return Promise.resolve();
+//     } else {
+//       return downloadFromGithub(api, dlInfo);
+//     }
+//   });
+// }
