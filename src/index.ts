@@ -335,7 +335,9 @@ function init(context: types.IExtensionContext) {
             ? Promise.resolve()
             : context.api.showErrorNotification('Failed to download/install BepInEx', err);
         }).finally(() => {
-          const hasInjectorMod = Object.values(context.api.getState().persistent.mods[gameMode]).some(mod => mod?.type === MODTYPE_BIX_INJECTOR);
+          const state = context.api.getState();
+          const mods: { [modId: string]: types.IMod } = util.getSafe(state, ['persistent', 'mods', gameMode], {});
+          const hasInjectorMod = Object.values(mods).some(mod => mod?.type === MODTYPE_BIX_INJECTOR);
           if (hasInjectorMod) {
             dismissNotifications(context.api, selectors.lastActiveProfileForGame(context.api.getState(), gameMode));
           }
