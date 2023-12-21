@@ -252,9 +252,9 @@ function init(context: types.IExtensionContext) {
         const batched = [
           actions.setModEnabled(profileId, modId, true),
         ];
-        if (meta.length > 0) {
+        if (meta.length > 0 && !!meta[0].value?.details) {
           batched.push(actions.setDownloadModInfo(archiveId, 'nexus.modInfo', meta[0].value) as any);
-          batched.push(actions.setModAttribute(gameId, modId, 'version', meta[0].value?.fileVersion) as any);
+          batched.push(actions.setModAttribute(gameId, modId, 'version', meta[0].value.fileVersion) as any);
           batched.push(actions.setModAttribute(gameId, modId, 'modId', meta[0].value.details.modId) as any);
           batched.push(actions.setModAttribute(gameId, modId, 'fileId', meta[0].value.details.fileId) as any);
           // batched.push(actions.setModAttributes(gameId, modId, meta[0].value) as any);
