@@ -31,9 +31,8 @@ export const resolveBixPackage = (gameConf: IBepInExGameConfig): IBIXPackageReso
   const arch = architecture !== undefined ? architecture : 'x64';
   const version = bepinexVersion !== undefined ? bepinexVersion : DEFAULT_VERSION;
   const unity = (unityBuild !== undefined)
-    ? `${unityBuild}_`
-    : semver.gte(version, NEW_FILE_FORMAT_VERSION)
-      ? 'unitymono_' : '';
+    ? semver.gte(version, NEW_FILE_FORMAT_VERSION) ? `${unityBuild}_` : ''
+    : semver.gte(version, NEW_FILE_FORMAT_VERSION) ? 'unitymono_' : '';
   const regex = `BepInEx_${unity}${arch}_${version}.*[.zip|.7z]`;
   return {
     rgx: new RegExp(regex, 'i'),
