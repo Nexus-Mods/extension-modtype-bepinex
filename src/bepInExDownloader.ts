@@ -126,8 +126,15 @@ export async function ensureBepInExPack(api: types.IExtensionApi,
     }
   } else if (gameConf.forceGithubDownload === true && isUpdate) {
     const latest = injectorModIds.reduce((prev, iter) => {
-      if (semver.gt(mods[iter]?.attributes?.version ?? '0.0.0', prev)) {
-        prev = mods[iter]?.attributes?.version;
+      let version: string = mods[iter]?.attributes?.version ?? '0.0.0';
+      try {
+        const coerced = semver.coerce(mods[iter]?.attributes?.version);
+        version = coerced.raw || '0.0.0';
+      } catch (err) {
+        version = '0.0.0';
+      }
+      if (semver.gt(version, prev)) {
+        prev = version;
       }
       return prev;
     }, '0.0.0');
