@@ -22,6 +22,9 @@ function makeCopy(source: string, gameConfig: IBepInExGameConfig,
   };
 }
 
+/**
+ * Below function is only relevant for BIX versions 5.4.22 or lower.
+ */
 async function applyDoorStopConfig(config: IDoorstopConfig, filePath: string) {
   const parser = new Parser(new WinapiFormat());
   const iniData: IniFile<any> = await parser.read(filePath);
@@ -68,17 +71,22 @@ export async function installInjector(files: string[],
     key: 'customFileName',
     value: 'Bepis Injector Extensible',
   };
-  if (doorStopConfig !== undefined) {
-    try {
-      const configFilePath = files.find(file => path.basename(file) === DOORSTOPPER_CONFIG);
-      if (configFilePath !== undefined) {
-        // This BIX package uses UnityDoorstop - attempt to modify the configuration.
-        await applyDoorStopConfig(doorStopConfig, path.join(destinationPath, configFilePath));
-      }
-    } catch (err) {
-      return Promise.reject(err);
-    }
-  }
+  /**
+   * The doorstopper format changed in 5.4.23 and in 6.x.x pre-release
+   *  versions. Rather than constantly changing our code to match any
+   *  their configuration changes, we might as well leave the default values in.
+   */
+  // if (doorStopConfig !== undefined) {
+  //   try {
+  //     const configFilePath = files.find(file => path.basename(file) === DOORSTOPPER_CONFIG);
+  //     if (configFilePath !== undefined) {
+  //       // This BIX package uses UnityDoorstop - attempt to modify the configuration.
+  //       await applyDoorStopConfig(doorStopConfig, path.join(destinationPath, configFilePath));
+  //     }
+  //   } catch (err) {
+  //     return Promise.reject(err);
+  //   }
+  // }
 
   const configData = await resolveBepInExConfiguration(gameId);
   const configInstr: types.IInstruction = {
