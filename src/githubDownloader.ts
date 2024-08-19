@@ -14,6 +14,7 @@ import { resolveBixPackage } from './common';
 
 const GITHUB_URL = 'https://api.github.com/repos/BepInEx/BepInEx';
 const BIX_LANDING = 'https://github.com/BepInEx/BepInEx';
+const BIX_RELEASES = 'https://github.com/BepInEx/BepInEx/releases';
 
 function query(baseUrl: string, request: string): Promise<IGithubRelease[]> {
   return new Promise((resolve, reject) => {
@@ -228,7 +229,8 @@ export async function checkForUpdates(api: types.IExtensionApi,
         return Promise.resolve(currentVersion);
       }
 
-      api.showErrorNotification('Unable to update BepInEx', err);
+      api.showErrorNotification('Unable to update BepInEx', err, { allowReport: false });
+      util.opn(BIX_RELEASES).catch(() => null);
       return Promise.resolve(currentVersion);
     });
 }
@@ -246,6 +248,7 @@ export async function downloadFromGithub(api: types.IExtensionApi,
         return Promise.resolve();
       } else {
         api.showErrorNotification('Unable to download/install BepInEx', err);
+        util.opn(BIX_RELEASES).catch(() => null);
         return Promise.resolve();
       }
     });
