@@ -56,6 +56,11 @@ async function onCheckModVersion(api: types.IExtensionApi,
     return;
   }
 
+  if (gameConf.bepinexVersion && gameConf.bepinexVersion === injectorMod.attributes?.version) {
+    // If a specific bepinex version is specified, and the injector mod already has that version.
+    //  We do not want to update it! BIX updates will break mods.
+    return;
+  }
   const forceUpdate = (dwnl?: INexusDownloadInfo) => ensureBepInExPack(api, gameId, true)
     .then(() => {
       if (dwnl === undefined) {
