@@ -117,7 +117,7 @@ async function notifyUpdate(api: types.IExtensionApi,
   });
 }
 
-export async function getLatestReleases(currentVersion: string): Promise<IGithubRelease[]> {
+export async function getLatestReleases(currentVersion: string, constraint: string): Promise<IGithubRelease[]> {
   if (GITHUB_URL) {
     return query(GITHUB_URL, 'releases')
       .then((releases) => {
@@ -127,12 +127,20 @@ export async function getLatestReleases(currentVersion: string): Promise<IGithub
         const current = releases
           .filter(rel => {
             const tagName = util.getSafe(rel, ['tag_name'], '5.4.22');
-            const version = semver.valid(tagName);
-
-            return (version !== null)
-              && ((currentVersion === undefined) || (semver.gte(version, currentVersion)));
+            const tagVersion = tagName.slice(1);
+            let version;
+            try {
+              version = semver.valid(util.semverCoerce(tagVersion))
+            } catch (e) {
+              return false;
+            }
+            return !currentVersion || (version !== currentVersion && semver.satisfies(version, constraint));
           })
-          .sort((lhs, rhs) => semver.compare(rhs.tag_name, lhs.tag_name));
+          .sort((lhs, rhs) =>
+            semver.compare(
+              util.semverCoerce(rhs.tag_name.slice(1)),
+              util.semverCoerce((lhs.tag_name.slice(1)))
+            ));
         return Promise.resolve(current);
       });
   }
@@ -204,7 +212,7 @@ async function resolveDownloadLink(gameConf: IBepInExGameConfig, currentReleases
 export async function checkForUpdates(api: types.IExtensionApi,
                                       gameConf: IBepInExGameConfig,
                                       currentVersion: string): Promise<string> {
-  return getLatestReleases(currentVersion)
+  return getLatestReleases(currentVersion, `^${gameConf.bepinexVersion}`)
     .then(async currentReleases => {
       if (currentReleases?.[0] === undefined) {
         // We failed to check for updates - that's unfortunate but shouldn't
@@ -225,7 +233,9 @@ export async function checkForUpdates(api: types.IExtensionApi,
         }
       }
     }).catch(err => {
-      if (err instanceof util.UserCanceled || err instanceof util.ProcessCanceled) {
+      const suppressibleError = [util.DataInvalid, util.UserCanceled, util.ProcessCanceled].reduce((a, c) => a || err instanceof c, false);
+      if (suppressibleError) {
+        log('debug', 'Unable to update BepInEx', err.message);
         return Promise.resolve(currentVersion);
       }
 
@@ -237,19 +247,18 @@ export async function checkForUpdates(api: types.IExtensionApi,
 
 export async function downloadFromGithub(api: types.IExtensionApi,
                                          gameConf: IBepInExGameConfig): Promise<void> {
-  return getLatestReleases(undefined)
+  return getLatestReleases(undefined, `^${gameConf.bepinexVersion}`)
     .then(async currentReleases => {
       const { version, downloadLink } = await resolveDownloadLink(gameConf, currentReleases);
       return downloadConsent(api, gameConf)
         .then(() => startDownload(api, gameConf, downloadLink));
     })
     .catch(err => {
-      if (err instanceof util.UserCanceled || err instanceof util.ProcessCanceled) {
-        return Promise.resolve();
-      } else {
-        api.showErrorNotification('Unable to download/install BepInEx', err);
+      const suppressibleError = [util.UserCanceled, util.ProcessCanceled].reduce((a, c) => a || err instanceof c, false);
+      if (!suppressibleError) {
+        api.showErrorNotification('Unable to download/install BepInEx - do it manually', err, { allowReport: false });
         util.opn(BIX_RELEASES).catch(() => null);
-        return Promise.resolve();
       }
+      return Promise.resolve();
     });
 }

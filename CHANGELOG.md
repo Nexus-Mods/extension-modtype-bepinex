@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.2.6] - 2024-10-21
+
+- Fixed installation error when installing BepInEx 6.0
+- Fixed failed to find matching update error message
+- Fixed BepInEx mod entry getting disabled during update checks
+
+
 ## [0.2.5] - 2024-08-19
 
 - Fixed attempts to check Github for BepInEx updates; when game extension specified a mandatory BIX version.

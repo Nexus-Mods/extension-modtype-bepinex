@@ -140,8 +140,6 @@ export async function ensureBepInExPack(api: types.IExtensionApi,
     }, '0.0.0');
     try {
       await checkForUpdates(api, gameConf, latest);
-      const batched = injectorModIds.map(id => actions.setModEnabled(profileId, id, false));
-      util.batchDispatch(api.store, batched);
     } catch (err) {
       api.showErrorNotification('Failed to update BepInEx', err);
     }

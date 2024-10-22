@@ -62,7 +62,12 @@ async function onCheckModVersion(api: types.IExtensionApi,
     return;
   }
   const forceUpdate = (dwnl?: INexusDownloadInfo) => ensureBepInExPack(api, gameId, true)
-    .then(() => {
+    .catch(err => {
+      return (err instanceof NotPremiumError)
+        ? Promise.resolve()
+        : api.showErrorNotification('Failed to update BepInEx', err);
+    })
+    .finally(() => {
       if (dwnl === undefined) {
         return Promise.resolve();
       }
@@ -76,11 +81,6 @@ async function onCheckModVersion(api: types.IExtensionApi,
         actions.setModEnabled(profile.id, newInjector, true)
       ];
       util.batchDispatch(api.store, batched);
-    })
-    .catch(err => {
-      return (err instanceof NotPremiumError)
-        ? Promise.resolve()
-        : api.showErrorNotification('Failed to update BepInEx', err);
     });
 
   if (gameConf.customPackDownloader !== undefined) {
