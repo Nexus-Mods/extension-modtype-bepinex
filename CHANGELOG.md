@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [0.2.6] - 2024-10-21
 
+- Fixed installation error when installing BepInEx 6.0
 - Fixed failed to find matching update error message
 - Fixed BepInEx mod entry getting disabled during update checks
 
