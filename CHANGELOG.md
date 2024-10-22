@@ -6,7 +6,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [0.2.6] - 2024-10-21
 
-- Fixed failed to find matching archive error message
+- Fixed failed to find matching update error message
+- Fixed BepInEx mod entry getting disabled during update checks
+
 
 ## [0.2.5] - 2024-08-19
 
