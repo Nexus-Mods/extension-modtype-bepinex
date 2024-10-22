@@ -96,7 +96,7 @@ export async function installInjector(files: string[],
   };
 
   const instructions: types.IInstruction[] = files.reduce((accum, file) => {
-    if (!path.extname(file)) {
+    if (!path.extname(file) || file.endsWith(path.sep)) {
       return accum;
     }
     if ((doorstopType !== 'default') && path.basename(file).toLowerCase() === DOORSTOPPER_HOOK) {
