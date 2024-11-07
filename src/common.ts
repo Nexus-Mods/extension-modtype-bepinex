@@ -1,6 +1,7 @@
 import path from 'path';
 import { IBIXPackageResolver, IAvailableDownloads,
   IBepInExGameConfig, INexusDownloadInfoExt } from './types';
+import { util } from 'vortex-api';
 
 import semver from 'semver';
 export const NEXUS = 'www.nexusmods.com';
@@ -51,6 +52,7 @@ export const addGameSupport = (gameConf: IBepInExGameConfig) => {
     if (gameConf.unityBuild === 'unityil2cpp' && gameConf.bepinexVersion === undefined) {
       gameConf.bepinexVersion = '6.0.0';
     }
+    gameConf.bepinexVersion = util.semverCoerce(gameConf.bepinexVersion).raw;
     GAME_SUPPORT[gameConf.gameId] = gameConf;
   }
 };
