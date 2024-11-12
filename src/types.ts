@@ -93,6 +93,9 @@ export interface IBepInExGameConfig {
   //  as a mod.
   bepinexVersion?: string;
 
+  // Used internally to store the coerced version of this BepInEx pack.
+  bepinexCoercedVersion?: string;
+
   // The game extension can have its own BepInEx configuration object defined
   //  this will be used to generate the BepInEx configuration file when installing
   //  the package. See the documentation for available parameters

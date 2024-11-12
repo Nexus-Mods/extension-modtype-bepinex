@@ -952,8 +952,8 @@ uri-js@^4.2.2:
     punycode "^2.1.0"
 
 vortex-api@Nexus-Mods/vortex-api:
-  version "1.5.6-r2"
-  resolved "https://codeload.github.com/Nexus-Mods/vortex-api/tar.gz/a68070850fa47e361e36dc1852ed0960ca8da211"
+  version "1.8.11"
+  resolved "https://codeload.github.com/Nexus-Mods/vortex-api/tar.gz/920862d472183b37a2b64fcd1bdbceadbf07c4e9"
 
 watchpack@^2.4.0:
   version "2.4.0"

@@ -127,10 +127,9 @@ export async function getLatestReleases(currentVersion: string, constraint: stri
         const current = releases
           .filter(rel => {
             const tagName = util.getSafe(rel, ['tag_name'], '5.4.22');
-            const tagVersion = tagName.slice(1);
             let version;
             try {
-              version = semver.valid(util.semverCoerce(tagVersion))
+              version = semver.valid(util.semverCoerce(tagName))
             } catch (e) {
               return false;
             }
@@ -189,10 +188,19 @@ async function resolveDownloadLink(gameConf: IBepInExGameConfig, currentReleases
   const { rgx, version } = resolveBixPackage(gameConf);
   let assetLink: string | undefined;
   const matchingRelease = currentReleases.find((release) => {
-    const tagVer = release.tag_name.slice(1);
-    if (semver.coerce(tagVer).raw !== version) {
+    // The slice removes the 'v' prefix
+    const tagVer = util.semverCoerce(release.tag_name.slice(1)).raw.replace(/-.*/igm, '');
+    // Take out the pre-release stuff - while resolving the download link, it's safe
+    //  to assume that the releases are checked from newest to oldest, thus the constraint
+    //  will be satisfied at the first match of major.minor.patch - which is the latest version
+    //  of this release.
+    const constraint = `${gameConf.bepinexCoercedVersion.replace(/-.*/igm, '')}`;
+    if (semver.gt(tagVer, constraint)) {
+    // You'd think that semver.satisfies would work here. It doesn't.
+    //  So we're resorting to filtering out the higher versions first (6.0.0, etc)
+    // if (!semver.satisfies(tagVer, constraint, { includePrerelease: true })) {
       return false;
-    } else {
+    } else if (semver.gte(tagVer, constraint)) {
       const matches = release.assets.filter(asset => rgx.test(asset.name));
       if (matches.length > 0) {
         assetLink = matches[0].browser_download_url;
