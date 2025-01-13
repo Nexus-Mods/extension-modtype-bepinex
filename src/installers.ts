@@ -8,13 +8,19 @@ import { resolveBepInExConfiguration } from './util';
 import { types } from 'vortex-api';
 
 function makeCopy(source: string, gameConfig: IBepInExGameConfig,
-                  alternativeFileName?: string): types.IInstruction {
-  const filePath = (alternativeFileName !== undefined)
+                  alternativeFileName?: string, idx: number = -1): types.IInstruction {
+  let filePath = (alternativeFileName !== undefined)
     ? source.replace(path.basename(source), alternativeFileName)
     : source;
-  const destination = (gameConfig.installRelPath !== undefined)
+  
+  let destination = (gameConfig.installRelPath !== undefined)
     ? path.join(gameConfig.installRelPath, filePath)
     : filePath;
+
+  const segments = source.split(path.sep);
+  if (idx && idx !== -1 && idx < segments.length) {
+    destination = segments.slice(idx).join(path.sep);
+  }
   return {
     type: 'copy',
     source,
@@ -59,6 +65,16 @@ export async function installInjector(files: string[],
                                       destinationPath: string,
                                       gameId: string): Promise<types.IInstallResult> {
   const gameConfig = getSupportMap()[gameId];
+  const idx = (() => {
+    const bixFile = files.find(file => {
+      const segments = file.split(path.sep);
+      return segments.includes('BepInEx');
+    });
+    if (!bixFile) {
+      return -1;
+    }
+    return bixFile.split(path.sep).indexOf('BepInEx');
+  })();
   const doorStopConfig = gameConfig.doorstopConfig;
   const doorstopType: UnityDoorstopType = doorStopConfig?.doorstopType !== undefined
     ? doorStopConfig.doorstopType : 'default';
@@ -102,7 +118,7 @@ export async function installInjector(files: string[],
     if ((doorstopType !== 'default') && path.basename(file).toLowerCase() === DOORSTOPPER_HOOK) {
       switch (doorstopType) {
         case 'unity3': {
-          accum.push(makeCopy(file, gameConfig, 'version.dll'));
+          accum.push(makeCopy(file, gameConfig, 'version.dll', idx));
           break;
         }
         case 'none': {
@@ -110,7 +126,7 @@ export async function installInjector(files: string[],
         }
       }
     } else {
-      accum.push(makeCopy(file, gameConfig));
+      accum.push(makeCopy(file, gameConfig, undefined, idx));
     }
     return accum;
   }, [modTypeInstruction, attribInstr, configInstr]);

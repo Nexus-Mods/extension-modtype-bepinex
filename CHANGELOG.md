@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.2.7] - 2025-01-13
+
+- Improved injector installer to support nested/non-standard BepInEx packaging
+
 ## [0.2.6] - 2024-10-21
 
 - Fixed installation error when installing BepInEx 6.0
