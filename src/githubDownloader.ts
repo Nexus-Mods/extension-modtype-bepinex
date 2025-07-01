@@ -161,6 +161,7 @@ async function startDownload(api: types.IExtensionApi,
     game: gameId,
     name: 'BepInEx',
   };
+
   api.events.emit('start-download', [redirectionURL], dlInfo, undefined,
     (error, id) => {
       if (error !== null) {
