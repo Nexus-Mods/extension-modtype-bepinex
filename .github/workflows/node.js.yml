@@ -31,7 +31,7 @@ jobs:
         type: 'zip'
         filename: '${{ env.PACKAGE_NAME }}.zip'
         path: './dist/*'
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: ${{ env.PACKAGE_NAME }}
         path: ${{ github.workspace }}/${{ env.PACKAGE_NAME }}.zip
