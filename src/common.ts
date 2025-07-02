@@ -31,11 +31,11 @@ export const resolveBixPackage = (gameConf: IBepInExGameConfig): IBIXPackageReso
   const { architecture, bepinexVersion, bepinexCoercedVersion, unityBuild } = gameConf;
   const arch = architecture !== undefined ? architecture : 'x64';
   const version = bepinexCoercedVersion !== undefined ? bepinexCoercedVersion : DEFAULT_VERSION;
-  const platform = semver.gte(version.replace(/-.*$/igm, ''), '5.4.23') ? process.platform === 'win32' ? 'win' : 'linux' : '';
+  const platform = semver.gte(version.replace(/-.*$/igm, ''), '5.4.23') ? process.platform === 'win32' ? 'win_' : 'linux_' : '';
   const unity = (unityBuild !== undefined)
     ? semver.gte(version, NEW_FILE_FORMAT_VERSION) ? `${unityBuild}_` : ''
     : semver.gte(version, NEW_FILE_FORMAT_VERSION) ? 'unitymono_' : '';
-  const regex = `BepInEx_${platform}_${unity}${arch}_${bepinexVersion}.*[.zip|.7z]`;
+  const regex = `BepInEx_${platform}${unity}${arch}_${bepinexVersion}.*[.zip|.7z]`;
   return {
     rgx: new RegExp(regex, 'i'),
     version,
@@ -52,6 +52,10 @@ export const addGameSupport = (gameConf: IBepInExGameConfig) => {
   } else {
     if (gameConf.unityBuild === 'unityil2cpp' && gameConf.bepinexVersion === undefined) {
       gameConf.bepinexVersion = '6.0.0';
+    } else {
+      if (gameConf.bepinexVersion == null) {
+        gameConf.bepinexVersion = DEFAULT_VERSION;
+      }
     }
     gameConf.bepinexCoercedVersion = util.semverCoerce(gameConf.bepinexVersion).version;
     GAME_SUPPORT[gameConf.gameId] = gameConf;
