@@ -91,7 +91,7 @@ async function onCheckModVersion(api: types.IExtensionApi,
       }
     } else if ((res as INexusDownloadInfo) !== undefined) {
       const nexDownload = res as INexusDownloadInfo;
-      if (nexDownload.fileId !== injectorMod.attributes?.fileId) {
+      if (nexDownload.fileId !== injectorMod.attributes?.fileId?.toString()) {
         return forceUpdate(nexDownload);
       }
     }
