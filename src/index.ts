@@ -246,6 +246,14 @@ function init(context: types.IExtensionContext) {
       if (mod?.type !== MODTYPE_BIX_INJECTOR) {
         return;
       }
+      if (mod.attributes != undefined &&
+        mod.attributes.modId &&
+        mod.attributes.fileId &&
+        mod.attributes.version
+      ) {
+        // Mod already has attributes set
+        return;
+      }
       const metaDataDetails: types.ILookupDetails = {
         gameId: 'site',
         fileName: mod.attributes?.fileName,
