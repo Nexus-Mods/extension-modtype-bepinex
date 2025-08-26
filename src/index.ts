@@ -91,7 +91,7 @@ async function onCheckModVersion(api: types.IExtensionApi,
       }
     } else if ((res as INexusDownloadInfo) !== undefined) {
       const nexDownload = res as INexusDownloadInfo;
-      if (nexDownload.fileId !== injectorMod.attributes?.fileId) {
+      if (nexDownload.fileId !== injectorMod.attributes?.fileId?.toString()) {
         return forceUpdate(nexDownload);
       }
     }
@@ -244,6 +244,14 @@ function init(context: types.IExtensionContext) {
       const state = context.api.getState();
       const mod: types.IMod = util.getSafe(state, ['persistent', 'mods', gameId, modId], undefined);
       if (mod?.type !== MODTYPE_BIX_INJECTOR) {
+        return;
+      }
+      if (mod.attributes != undefined &&
+        mod.attributes.modId &&
+        mod.attributes.fileId &&
+        mod.attributes.version
+      ) {
+        // Mod already has attributes set
         return;
       }
       const metaDataDetails: types.ILookupDetails = {
