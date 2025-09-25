@@ -49,9 +49,16 @@ function query(baseUrl: string, request: string): Promise<IGithubRelease[]> {
 }
 
 function getRequestOptions(link: string) {
-  const relUrl = url.parse(link);
+  let relUrl;
+  try {
+    relUrl = new URL(link);
+  } catch (err) {
+    throw new Error(`Invalid URL: ${link}`);
+  }
   return ({
-    ..._.pick(relUrl, ['port', 'hostname', 'path']),
+    port: relUrl.port,
+    hostname: relUrl.hostname,
+    path: relUrl.pathname + relUrl.search,
     headers: {
       'User-Agent': 'Vortex',
     },
